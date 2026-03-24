@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoResearch Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d0d2b 100%);
+            color: #e0e0f0;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #8888aa;
+            font-size: 0.95rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            backdrop-filter: blur(12px);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(102, 126, 234, 0.4);
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #8888aa;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-card .value.green { color: #4ade80; }
+        .stat-card .value.amber { color: #fbbf24; }
+        .stat-card .value.red { color: #f87171; }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 32px;
+            backdrop-filter: blur(12px);
+        }
+
+        .chart-container h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #c0c0e0;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        .results-table {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            overflow-x: auto;
+        }
+
+        .results-table h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #c0c0e0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #8888aa;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        td {
+            padding: 10px 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        tr:hover td {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        tr.best td {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge.improved {
+            background: rgba(74, 222, 128, 0.15);
+            color: #4ade80;
+        }
+
+        .badge.regressed {
+            background: rgba(248, 113, 113, 0.15);
+            color: #f87171;
+        }
+
+        .badge.first {
+            background: rgba(102, 126, 234, 0.15);
+            color: #667eea;
+        }
+
+        .load-section {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .load-section input[type="file"] {
+            display: none;
+        }
+
+        .load-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .load-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .load-btn:active {
+            transform: translateY(0);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6666aa;
+        }
+
+        .empty-state .icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            color: #555577;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔬 AutoResearch Dashboard</h1>
+        <p>Autonomous ML Research Experiment Tracker — 4GB GPU Edition</p>
+    </div>
+
+    <div class="load-section">
+        <input type="file" id="fileInput" accept=".tsv,.txt">
+        <button class="load-btn" onclick="document.getElementById('fileInput').click()">
+            📂 Load results.tsv
+        </button>
+        <button class="load-btn" onclick="loadDemo()" style="margin-left: 8px; background: linear-gradient(135deg, #4a4a6a 0%, #2a2a4a 100%);">
+            Demo Data
+        </button>
+    </div>
+
+    <div id="dashboard" style="display: none;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="label">Total Experiments</div>
+                <div class="value" id="totalExp">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Best Val BPB</div>
+                <div class="value green" id="bestBpb">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Improvements</div>
+                <div class="value amber" id="improvements">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">Total Improvement</div>
+                <div class="value" id="totalImprovement">—</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📈 Val BPB Over Experiments</h2>
+            <div class="chart-wrapper">
+                <canvas id="bpbChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2>📊 Val Loss Over Experiments</h2>
+            <div class="chart-wrapper">
+                <canvas id="lossChart"></canvas>
+            </div>
+        </div>
+
+        <div class="results-table">
+            <h2>📋 Experiment Log</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Timestamp</th>
+                        <th>Val Loss</th>
+                        <th>Val BPB</th>
+                        <th>Params</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="emptyState" class="empty-state">
+        <div class="icon">📊</div>
+        <h3>No Data Loaded</h3>
+        <p style="margin-top: 8px;">Load your results.tsv file or click "Demo Data" to see the dashboard.</p>
+    </div>
+
+    <div class="footer">
+        AutoResearch Dashboard — Inspired by Karpathy's AutoResearch
+    </div>
+
+    <script>
+        let bpbChart = null;
+        let lossChart = null;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const data = parseTSV(event.target.result);
+                renderDashboard(data);
+            };
+            reader.readAsText(file);
+        });
+
+        function parseTSV(text) {
+            const lines = text.trim().split('\n');
+            const results = [];
+            lines.forEach((line, i) => {
+                const parts = line.split('\t');
+                if (parts.length >= 3) {
+                    results.push({
+                        run: i + 1,
+                        timestamp: parts[0],
+                        val_loss: parseFloat(parts[1]),
+                        val_bpb: parseFloat(parts[2]),
+                        params: parts.length > 3 ? parseInt(parts[3]) : null,
+                    });
+                }
+            });
+            return results;
+        }
+
+        function loadDemo() {
+            const demoData = [
+                { run: 1, timestamp: '2026-03-23 14:00:00', val_loss: 1.8500, val_bpb: 2.6690, params: 15234048 },
+                { run: 2, timestamp: '2026-03-23 14:06:00', val_loss: 1.7800, val_bpb: 2.5680, params: 15234048 },
+                { run: 3, timestamp: '2026-03-23 14:12:00', val_loss: 1.8200, val_bpb: 2.6257, params: 15234048 },
+                { run: 4, timestamp: '2026-03-23 14:18:00', val_loss: 1.7200, val_bpb: 2.4814, params: 15234048 },
+                { run: 5, timestamp: '2026-03-23 14:24:00', val_loss: 1.6900, val_bpb: 2.4381, params: 12800000 },
+                { run: 6, timestamp: '2026-03-23 14:30:00', val_loss: 1.7100, val_bpb: 2.4670, params: 12800000 },
+                { run: 7, timestamp: '2026-03-23 14:36:00', val_loss: 1.6500, val_bpb: 2.3804, params: 12800000 },
+                { run: 8, timestamp: '2026-03-23 14:42:00', val_loss: 1.6300, val_bpb: 2.3516, params: 16000000 },
+                { run: 9, timestamp: '2026-03-23 14:48:00', val_loss: 1.6800, val_bpb: 2.4237, params: 16000000 },
+                { run: 10, timestamp: '2026-03-23 14:54:00', val_loss: 1.6100, val_bpb: 2.3228, params: 16000000 },
+            ];
+            renderDashboard(demoData);
+        }
+
+        function renderDashboard(data) {
+            document.getElementById('dashboard').style.display = 'block';
+            document.getElementById('emptyState').style.display = 'none';
+
+            // Stats
+            document.getElementById('totalExp').textContent = data.length;
+
+            let bestBpb = Infinity;
+            let bestRun = null;
+            let improvements = 0;
+
+            data.forEach(r => {
+                if (r.val_bpb < bestBpb) {
+                    bestBpb = r.val_bpb;
+                    bestRun = r;
+                    improvements++;
+                }
+            });
+
+            document.getElementById('bestBpb').textContent = bestBpb.toFixed(4);
+            document.getElementById('improvements').textContent = `${improvements}/${data.length}`;
+
+            if (data.length >= 2) {
+                const totalImp = data[0].val_bpb - bestBpb;
+                const pct = ((totalImp / data[0].val_bpb) * 100).toFixed(1);
+                document.getElementById('totalImprovement').textContent = `${pct}%`;
+            }
+
+            // Charts
+            const labels = data.map(r => `#${r.run}`);
+            const bpbValues = data.map(r => r.val_bpb);
+            const lossValues = data.map(r => r.val_loss);
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#8888aa' },
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                    },
+                    y: {
+                        ticks: { color: '#8888aa' },
+                        grid: { color: 'rgba(255,255,255,0.04)' },
+                    },
+                },
+            };
+
+            if (bpbChart) bpbChart.destroy();
+            bpbChart = new Chart(document.getElementById('bpbChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: bpbValues,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: bpbValues.map((v, i) => {
+                            if (i === 0) return '#667eea';
+                            return v < Math.min(...bpbValues.slice(0, i)) ? '#4ade80' : '#f87171';
+                        }),
+                        pointRadius: 5,
+                    }],
+                },
+                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Val BPB (lower is better)', color: '#8888aa' } } } },
+            });
+
+            if (lossChart) lossChart.destroy();
+            lossChart = new Chart(document.getElementById('lossChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: lossValues,
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 4,
+                    }],
+                },
+                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Val Loss', color: '#8888aa' } } } },
+            });
+
+            // Table
+            const tbody = document.getElementById('resultsBody');
+            tbody.innerHTML = '';
+            let runningBest = Infinity;
+
+            data.forEach(r => {
+                const tr = document.createElement('tr');
+                let badge = '';
+                if (r.run === 1) {
+                    badge = '<span class="badge first">BASELINE</span>';
+                } else if (r.val_bpb < runningBest) {
+                    badge = '<span class="badge improved">★ IMPROVED</span>';
+                } else {
+                    badge = '<span class="badge regressed">REVERTED</span>';
+                }
+
+                if (r.val_bpb < runningBest) {
+                    runningBest = r.val_bpb;
+                }
+
+                if (r === bestRun) tr.classList.add('best');
+
+                const paramsStr = r.params ? r.params.toLocaleString() : 'N/A';
+                tr.innerHTML = `
+                    <td>${r.run}</td>
+                    <td>${r.timestamp}</td>
+                    <td>${r.val_loss.toFixed(6)}</td>
+                    <td>${r.val_bpb.toFixed(6)}</td>
+                    <td>${paramsStr}</td>
+                    <td>${badge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
