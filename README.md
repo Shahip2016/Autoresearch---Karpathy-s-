@@ -28,6 +28,9 @@ An AI agent iteratively modifies `train.py`, runs a 5-minute training experiment
 | `autoresearch.py` | The "Karpathy Loop" controller. Runs experiments, tracks results, keeps/reverts changes. |
 | `analyze.py` | Experiment analysis tool — parses `results.tsv` and shows improvement statistics. |
 | `dashboard.html` | Interactive web dashboard for visualizing experiment progress with charts. |
+| `generate.py` | Text generation CLI tool to sample from trained checkpoints. |
+| `profile.py` | VRAM memory estimator to check if the current model fits in 4GB. |
+| `diff_experiments.py` | Diff tool to compare hyperparameter changes between `history/` snapshots. |
 
 ## Quick Start
 
@@ -46,6 +49,15 @@ python analyze.py
 
 # 5. View dashboard
 # Open dashboard.html in your browser, then load results.tsv
+
+# 6. Generate text from best model
+python generate.py --prompt "To be or not to be"
+
+# 7. Check if model fits in 4GB VRAM
+python profile.py
+
+# 8. Compare two experiments
+python diff_experiments.py --list
 ```
 
 ## How It Works
@@ -71,6 +83,9 @@ python analyze.py
 - **🔒 VRAM Safety** — Optimized defaults to prevent OOM on 4GB GPUs
 - **💾 History Snapshots** — Every version of `train.py` is saved in `history/`
 - **🎯 SwiGLU + RoPE** — Modern architecture choices for better parameter efficiency
+- **🔍 Profile Tool** — Check VRAM usage limits before running (`profile.py`)
+- **📜 Generator** — CLI tool to generate stories from the model (`generate.py`)
+- **⚖️ Diff Tool** — Visually compare parameter changes across experiments (`diff_experiments.py`)
 
 ## Requirements
 
