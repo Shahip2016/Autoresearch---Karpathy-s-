@@ -162,10 +162,12 @@ class Block(nn.Module):
         self.attn = CausalSelfAttention()
         self.ln_2 = RMSNorm(N_EMBD)
         self.mlp = MLP()
+        self.ls_1 = nn.Parameter(torch.ones(N_EMBD) * 0.1)
+        self.ls_2 = nn.Parameter(torch.ones(N_EMBD) * 0.1)
 
     def forward(self, x):
-        x = x + self.attn(self.ln_1(x))
-        x = x + self.mlp(self.ln_2(x))
+        x = x + self.ls_1 * self.attn(self.ln_1(x))
+        x = x + self.ls_2 * self.mlp(self.ln_2(x))
         return x
 
 class GPT(nn.Module):
