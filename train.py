@@ -283,6 +283,13 @@ def train():
     print(f"Batch size: {BATCH_SIZE} x {GRAD_ACCUM_STEPS} = {BATCH_SIZE * GRAD_ACCUM_STEPS}")
     print(f"Time budget: {MAX_RUNTIME}s")
 
+    if hasattr(torch, 'compile'):
+        try:
+            model = torch.compile(model)
+            print("Model compiled with torch.compile")
+        except Exception as e:
+            print(f"Warning: torch.compile failed: {e}")
+
     # Optimizer — AdamW
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
     decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
