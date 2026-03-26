@@ -115,6 +115,8 @@ class CausalSelfAttention(nn.Module):
         self.attn_dropout = nn.Dropout(DROPOUT)
         self.resid_dropout = nn.Dropout(DROPOUT)
         self.rotary = RotaryEmbedding(self.head_dim, BLOCK_SIZE)
+        self.q_ln = RMSNorm(self.head_dim)
+        self.k_ln = RMSNorm(self.head_dim)
 
     def forward(self, x):
         B, T, C = x.size()
@@ -123,6 +125,10 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
+
+        # Apply QK-Norm
+        q = self.q_ln(q)
+        k = self.k_ln(k)
 
         # Apply RoPE
         cos, sin = self.rotary(T)
@@ -200,7 +206,7 @@ class GPT(nn.Module):
 
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), label_smoothing=0.1)
         return logits, loss
 
     def count_parameters(self):
