@@ -9,6 +9,7 @@ import math
 import time
 import pickle
 import random
+import logging
 import argparse
 import numpy as np
 import torch
@@ -267,6 +268,17 @@ def compute_bpb(val_loss):
 # Training Loop
 # =============================================================================
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler("autoresearch.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 @torch.no_grad()
 def estimate_loss(model):
     out = {}
@@ -295,32 +307,32 @@ def train():
     LEARNING_RATE = args.learning_rate
     MAX_ITERS = args.max_iters
 
-    print("=" * 60)
-    print("AutoResearch Training — 4GB GPU Optimized")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("AutoResearch Training — 4GB GPU Optimized")
+    logger.info("=" * 60)
 
     # Load meta
     meta_path = os.path.join(DATA_DIR, 'meta.pkl')
     if os.path.exists(meta_path):
         with open(meta_path, 'rb') as f:
             meta = pickle.load(f)
-        print(f"Vocab size: {meta['vocab_size']}")
+        logger.info(f"Vocab size: {meta['vocab_size']}")
 
     # Create model
     model = GPT().to(DEVICE)
     param_count = model.count_parameters()
-    print(f"Model parameters: {param_count:,}")
-    print(f"Estimated model size: {param_count * 4 / 1024 / 1024:.1f} MB (FP32)")
-    print(f"Device: {DEVICE}, Dtype: {DTYPE}")
-    print(f"Batch size: {BATCH_SIZE} x {GRAD_ACCUM_STEPS} = {BATCH_SIZE * GRAD_ACCUM_STEPS}")
-    print(f"Time budget: {MAX_RUNTIME}s")
+    logger.info(f"Model parameters: {param_count:,}")
+    logger.info(f"Estimated model size: {param_count * 4 / 1024 / 1024:.1f} MB (FP32)")
+    logger.info(f"Device: {DEVICE}, Dtype: {DTYPE}")
+    logger.info(f"Batch size: {BATCH_SIZE} x {GRAD_ACCUM_STEPS} = {BATCH_SIZE * GRAD_ACCUM_STEPS}")
+    logger.info(f"Time budget: {MAX_RUNTIME}s")
 
     if hasattr(torch, 'compile'):
         try:
             model = torch.compile(model)
-            print("Model compiled with torch.compile")
+            logger.info("Model compiled with torch.compile")
         except Exception as e:
-            print(f"Warning: torch.compile failed: {e}")
+            logger.warning(f"Warning: torch.compile failed: {e}")
 
     # Optimizer — AdamW
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
@@ -359,7 +371,7 @@ def train():
             elapsed = time.time() - t0
 
         if elapsed >= MAX_RUNTIME:
-            print(f"\n[TIME] Budget of {MAX_RUNTIME}s reached at iter {iter_num}. Stopping.")
+            logger.info(f"\n[TIME] Budget of {MAX_RUNTIME}s reached at iter {iter_num}. Stopping.")
             break
 
         # Learning rate schedule
@@ -417,9 +429,9 @@ def train():
     losses = estimate_loss(model)
     final_val_loss = losses['val']
     final_bpb = compute_bpb(final_val_loss)
-    print(f"\n{'=' * 60}")
-    print(f"FINAL | val_loss {final_val_loss:.4f} | val_bpb {final_bpb:.4f}")
-    print(f"{'=' * 60}")
+    logger.info(f"\n{'=' * 60}")
+    logger.info(f"FINAL | val_loss {final_val_loss:.4f} | val_bpb {final_bpb:.4f}")
+    logger.info(f"{'=' * 60}")
 
     # Save final checkpoint
     torch.save(model.state_dict(), os.path.join(OUT_DIR, 'final_model.pt'))
@@ -445,7 +457,7 @@ def train():
         with torch.no_grad():
             generated = model.generate(context, max_new_tokens=200)
         text = ''.join([itos[i] for i in generated[0].tolist()])
-        print(f"\n--- Generated Sample ---\n{text}\n")
+        logger.info(f"\n--- Generated Sample ---\n{text}\n")
 
     return final_bpb
 
