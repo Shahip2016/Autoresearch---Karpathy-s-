@@ -403,10 +403,16 @@ def train():
     # Save final checkpoint
     torch.save(model.state_dict(), os.path.join(OUT_DIR, 'final_model.pt'))
 
+    import json
     # Write results to TSV
     results_path = os.path.join(os.path.dirname(__file__), 'results.tsv')
     with open(results_path, 'a') as f:
         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\n")
+
+    # Write full history to JSON
+    json_path = os.path.join(OUT_DIR, 'loss_history.json')
+    with open(json_path, 'w') as f:
+        json.dump(results, f, indent=4)
 
     # Generate sample text
     if os.path.exists(meta_path):
