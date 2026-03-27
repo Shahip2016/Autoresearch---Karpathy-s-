@@ -45,6 +45,7 @@ MAX_ITERS = 5000          # fallback max iters
 MAX_RUNTIME = 300         # 5 minutes time budget (seconds)
 EVAL_INTERVAL = 50
 EVAL_ITERS = 20
+PATIENCE = 5              # Early stopping patience in terms of evaluations
 WEIGHT_DECAY = 0.1
 BETA1 = 0.9
 BETA2 = 0.95
@@ -332,6 +333,7 @@ def train():
     from tqdm import tqdm
     best_val_loss = float('inf')
     results = []
+    patience_counter = 0
 
     pbar = tqdm(range(MAX_ITERS), desc="Training")
     for iter_num in pbar:
@@ -389,8 +391,14 @@ def train():
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
+                patience_counter = 0
                 torch.save(model.state_dict(), os.path.join(OUT_DIR, 'best_model.pt'))
                 pbar.write(f"    -> New best val_loss! Saved checkpoint.")
+            else:
+                patience_counter += 1
+                if patience_counter >= PATIENCE:
+                    pbar.write(f"\n[EARLY STOPPING] Validation loss stopped improving. Patience ({PATIENCE}) reached.")
+                    break
 
     # Final evaluation
     losses = estimate_loss(model)
