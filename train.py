@@ -9,6 +9,7 @@ import math
 import time
 import pickle
 import random
+import argparse
 import numpy as np
 import torch
 import torch.nn as nn
@@ -282,6 +283,18 @@ def estimate_loss(model):
     return out
 
 def train():
+    # Update globals with argparse args if needed
+    global BATCH_SIZE, LEARNING_RATE, MAX_ITERS
+    parser = argparse.ArgumentParser(description="AutoResearch Training — 4GB GPU Optimized")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Micro batch size")
+    parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE, help="Learning rate")
+    parser.add_argument("--max-iters", type=int, default=MAX_ITERS, help="Fallback max iters")
+    args, unknown = parser.parse_known_args()
+    
+    BATCH_SIZE = args.batch_size
+    LEARNING_RATE = args.learning_rate
+    MAX_ITERS = args.max_iters
+
     print("=" * 60)
     print("AutoResearch Training — 4GB GPU Optimized")
     print("=" * 60)
