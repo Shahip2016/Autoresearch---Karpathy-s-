@@ -329,10 +329,12 @@ def train():
     else:
         t0 = time.time()
 
+    from tqdm import tqdm
     best_val_loss = float('inf')
     results = []
 
-    for iter_num in range(MAX_ITERS):
+    pbar = tqdm(range(MAX_ITERS), desc="Training")
+    for iter_num in pbar:
         # Check time budget
         if DEVICE == 'cuda':
             end_event.record()
@@ -374,7 +376,8 @@ def train():
             val_loss = losses['val']
             val_bpb = compute_bpb(val_loss)
 
-            print(f"  iter {iter_num:5d} | train_loss {train_loss:.4f} | val_loss {val_loss:.4f} | val_bpb {val_bpb:.4f} | lr {lr:.2e} | time {elapsed:.1f}s")
+            pbar.write(f"  iter {iter_num:5d} | train_loss {train_loss:.4f} | val_loss {val_loss:.4f} | val_bpb {val_bpb:.4f} | lr {lr:.2e} | time {elapsed:.1f}s")
+            pbar.set_postfix({'val_bpb': f'{val_bpb:.4f}', 'lr': f'{lr:.2e}'})
 
             results.append({
                 'iter': iter_num,
@@ -387,7 +390,7 @@ def train():
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 torch.save(model.state_dict(), os.path.join(OUT_DIR, 'best_model.pt'))
-                print(f"    -> New best val_loss! Saved checkpoint.")
+                pbar.write(f"    -> New best val_loss! Saved checkpoint.")
 
     # Final evaluation
     losses = estimate_loss(model)
