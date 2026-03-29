@@ -1,26 +1,35 @@
 import os
 import requests
 import numpy as np
+import argparse
+import pickle
 from tqdm import tqdm
 
-# Settings
-DATA_URL = "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-os.makedirs(DATA_DIR, exist_ok=True)
-INPUT_FILE_PATH = os.path.join(DATA_DIR, 'input.txt')
+# Available datasets
+DATASETS = {
+    'tinyshakespeare': "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
+    'wikitext2': "https://raw.githubusercontent.com/pytorch/examples/master/word_language_model/data/wikitext-2/train.txt",
+}
 
-def download_data():
-    if not os.path.exists(INPUT_FILE_PATH):
-        print(f"Downloading dataset from {DATA_URL}...")
-        response = requests.get(DATA_URL)
-        with open(INPUT_FILE_PATH, 'w', encoding='utf-8') as f:
+def download_data(dataset_name, data_dir):
+    input_file_path = os.path.join(data_dir, f'input_{dataset_name}.txt')
+    if not os.path.exists(input_file_path):
+        url = DATASETS.get(dataset_name)
+        if not url:
+            print(f"Error: Dataset '{dataset_name}' not found in registry.")
+            return None
+        
+        print(f"Downloading {dataset_name} from {url}...")
+        response = requests.get(url)
+        with open(input_file_path, 'w', encoding='utf-8') as f:
             f.write(response.text)
         print("Download complete.")
     else:
-        print("Dataset already exists.")
+        print(f"Dataset '{dataset_name}' already exists at {input_file_path}.")
+    return input_file_path
 
-def prepare_data():
-    with open(INPUT_FILE_PATH, 'r', encoding='utf-8') as f:
+def prepare_data(input_file_path, data_dir, dataset_name):
+    with open(input_file_path, 'r', encoding='utf-8') as f:
         data = f.read()
     
     print(f"Length of dataset in characters: {len(data):,}")
@@ -37,9 +46,6 @@ def prepare_data():
     def encode(s):
         return [stoi[c] for c in s]
     
-    def decode(l):
-        return ''.join([itos[i] for i in l])
-    
     # Train/Val split
     n = len(data)
     train_data = data[:int(n*0.9)]
@@ -54,21 +60,34 @@ def prepare_data():
     # Save to binary files
     train_ids = np.array(train_ids, dtype=np.uint16)
     val_ids = np.array(val_ids, dtype=np.uint16)
-    train_ids.tofile(os.path.join(DATA_DIR, 'train.bin'))
-    val_ids.tofile(os.path.join(DATA_DIR, 'val.bin'))
+    
+    # Use dataset prefix if not default
+    prefix = "" if dataset_name == 'tinyshakespeare' else f"{dataset_name}_"
+    train_ids.tofile(os.path.join(data_dir, f'{prefix}train.bin'))
+    val_ids.tofile(os.path.join(data_dir, f'{prefix}val.bin'))
     
     # Save meta information
-    import pickle
     meta = {
         'vocab_size': vocab_size,
         'itos': itos,
         'stoi': stoi,
     }
-    with open(os.path.join(DATA_DIR, 'meta.pkl'), 'wb') as f:
+    meta_name = 'meta.pkl' if dataset_name == 'tinyshakespeare' else f'{dataset_name}_meta.pkl'
+    with open(os.path.join(data_dir, meta_name), 'wb') as f:
         pickle.dump(meta, f)
     
-    print("Preparation complete. Files saved in 'data/' directory.")
+    print(f"Preparation complete. Files saved in 'data/' with prefix '{prefix}'.")
 
 if __name__ == "__main__":
-    download_data()
-    prepare_data()
+    parser = argparse.ArgumentParser(description="Prepare dataset for AutoResearch")
+    parser.add_argument('--dataset', type=str, default='tinyshakespeare', 
+                        choices=list(DATASETS.keys()), help='Dataset to download and prepare')
+    args = parser.parse_args()
+
+    data_dir = os.path.join(os.path.dirname(__file__), 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    
+    path = download_data(args.dataset, data_dir)
+    if path:
+        prepare_data(path, data_dir, args.dataset)
+
