@@ -15,6 +15,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
+
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -301,15 +303,24 @@ def train():
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Micro batch size")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE, help="Learning rate")
     parser.add_argument("--max-iters", type=int, default=MAX_ITERS, help="Fallback max iters")
+    parser.add_argument("--iter", type=int, default=0, help="Current experiment iteration")
     args, unknown = parser.parse_known_args()
     
     BATCH_SIZE = args.batch_size
     LEARNING_RATE = args.learning_rate
     MAX_ITERS = args.max_iters
+    iteration = args.iter
+
 
     logger.info("=" * 60)
     logger.info("AutoResearch Training — 4GB GPU Optimized")
     logger.info("=" * 60)
+
+    # Initialize TensorBoard writer
+    log_dir = os.path.join(os.path.dirname(__file__), 'runs', time.strftime('%Y%m%d-%H%M%S'))
+    writer = SummaryWriter(log_dir=log_dir)
+    logger.info(f"TensorBoard logging to: {log_dir}")
+
 
     # Load meta
     meta_path = os.path.join(DATA_DIR, 'meta.pkl')
@@ -414,6 +425,13 @@ def train():
                 'elapsed': elapsed,
             })
 
+            # TensorBoard logging
+            writer.add_scalar('Loss/train', train_loss, iter_num)
+            writer.add_scalar('Loss/val', val_loss, iter_num)
+            writer.add_scalar('Metric/val_bpb', val_bpb, iter_num)
+            writer.add_scalar('Params/lr', lr, iter_num)
+
+
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
@@ -440,7 +458,8 @@ def train():
     # Write results to TSV
     results_path = os.path.join(os.path.dirname(__file__), 'results.tsv')
     with open(results_path, 'a') as f:
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\n")
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\n")
+
 
     # Write full history to JSON
     json_path = os.path.join(OUT_DIR, 'loss_history.json')
@@ -459,7 +478,9 @@ def train():
         text = ''.join([itos[i] for i in generated[0].tolist()])
         logger.info(f"\n--- Generated Sample ---\n{text}\n")
 
+    writer.close()
     return final_bpb
+
 
 if __name__ == "__main__":
     train()
