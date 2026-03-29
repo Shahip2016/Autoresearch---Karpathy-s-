@@ -128,6 +128,7 @@ def main():
     parser.add_argument('--batch-size', type=int, default=None, help='Override BATCH_SIZE (micro batch)')
     parser.add_argument('--block-size', type=int, default=None, help='Override BLOCK_SIZE (context window)')
     parser.add_argument('--accum-steps', type=int, default=None, help='Override GRAD_ACCUM_STEPS')
+    parser.add_argument('--budget', type=float, default=4.0, help='GPU VRAM budget in GB (default: 4.0)')
     args = parser.parse_args()
 
     patch_train_hyperparams(args.batch_size, args.block_size, args.accum_steps)
@@ -143,6 +144,7 @@ def main():
     print(f"Micro Batch:      {t.BATCH_SIZE}")
     print(f"Context (Block):  {t.BLOCK_SIZE}")
     print(f"Grad Accum steps: {t.GRAD_ACCUM_STEPS}")
+    print(f"VRAM Budget:      {args.budget} GB")
 
     # 1. Static estimation
     _, static_bytes = profile_static_memory()
@@ -150,8 +152,9 @@ def main():
     # 2. Runtime measurement
     peak_vram = profile_runtime_memory()
     
-    # 3. Budget Check (4GB)
-    budget_bytes = 4 * 1024 * 1024 * 1024
+    # 3. Budget Check
+    budget_bytes = int(args.budget * 1024 * 1024 * 1024)
+
     
     print("\n" + "=" * 60)
     print(" Verdict: 4GB GPU Budget Check")
