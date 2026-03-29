@@ -96,3 +96,14 @@ python diff_experiments.py --list
 ## License
 
 MIT
+
+<!-- LEADERBOARD_START -->
+
+## Experiment Leaderboard (Top 5)
+
+| Rank | Iteration | Val BPB | Timestamp | Parameters |
+|---|---|---|---|---|
+| 1 | 1 | **2.135000** | 2026-03-29 17:35:00 | 15000000 |
+| 2 | 0 | **2.164000** | 2026-03-29 17:30:00 | 15000000 |
+
+<!-- LEADERBOARD_END -->
