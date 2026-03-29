@@ -38,6 +38,15 @@ def read_last_bpb():
         return float(parts[2])
     return None
 
+def count_completed_experiments():
+    """Count how many experiments are recorded in results.tsv."""
+    if not os.path.exists(RESULTS_FILE):
+        return 0
+    with open(RESULTS_FILE, 'r') as f:
+        lines = [l for l in f.readlines() if l.strip()]
+    return len(lines)
+
+
 def save_snapshot(iteration, label=""):
     """Save a copy of train.py to history/."""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -52,21 +61,22 @@ def restore_snapshot(snapshot_path):
     shutil.copy2(snapshot_path, TRAIN_PY)
     print(f"  [RESTORE] Reverted to {os.path.basename(snapshot_path)}")
 
-def run_training():
-    """Run train.py and return the exit code."""
+def run_training(iteration):
+    """Run train.py with iteration and return the exit code."""
     print(f"\n{'='*60}")
-    print(f"  RUNNING EXPERIMENT: python train.py")
+    print(f"  RUNNING EXPERIMENT: python train.py --iter {iteration}")
     print(f"{'='*60}\n")
 
     python_exe = sys.executable
     result = subprocess.run(
-        [python_exe, TRAIN_PY],
+        [python_exe, TRAIN_PY, '--iter', str(iteration)],
         cwd=SCRIPT_DIR,
-        timeout=600,  # 10 min hard timeout (5 min in train.py + buffer)
+        timeout=600,  # 10 min hard timeout
     )
     return result.returncode
 
-def run_loop(max_experiments=100, test_mode=False):
+def run_loop(max_experiments=100, test_mode=False, resume=False):
+
     """Main autonomous research loop."""
     print("=" * 60)
     print("  AutoResearch — The Karpathy Loop")
@@ -77,6 +87,14 @@ def run_loop(max_experiments=100, test_mode=False):
     print(f"  History dir:     {HISTORY_DIR}")
     print()
 
+    start_experiment = 1
+    if resume:
+        start_experiment = count_completed_experiments() + 1
+        if start_experiment > max_experiments:
+            print(f"  [DONE] Already completed {start_experiment-1} experiments. Nothing to do.")
+            return
+        print(f"  [RESUME] Found {start_experiment - 1} completed experiments. Resuming from experiment {start_experiment}.")
+
     if test_mode:
         print("[TEST MODE] Dry run — no actual training will occur.")
         # Save initial snapshot
@@ -85,12 +103,14 @@ def run_loop(max_experiments=100, test_mode=False):
         return
 
     best_bpb = read_last_bpb()
+
     if best_bpb:
         print(f"  Previous best val_bpb: {best_bpb:.6f}")
     else:
         print("  No previous results found. This is the first run.")
 
-    for experiment in range(1, max_experiments + 1):
+    for experiment in range(start_experiment, max_experiments + 1):
+
         print(f"\n{'#'*60}")
         print(f"  EXPERIMENT {experiment}/{max_experiments}")
         print(f"{'#'*60}")
@@ -100,7 +120,8 @@ def run_loop(max_experiments=100, test_mode=False):
 
         # Run training
         try:
-            exit_code = run_training()
+            exit_code = run_training(experiment)
+
         except subprocess.TimeoutExpired:
             print("  [ERROR] Training timed out!")
             restore_snapshot(snapshot)
@@ -148,5 +169,8 @@ if __name__ == "__main__":
                         help='Maximum number of experiments to run (default: 100)')
     parser.add_argument('--test-mode', action='store_true',
                         help='Dry run to verify loop logic')
+    parser.add_argument('--resume', action='store_true',
+                        help='Resume from the last experiment in results.tsv')
     args = parser.parse_args()
-    run_loop(max_experiments=args.max_experiments, test_mode=args.test_mode)
+    run_loop(max_experiments=args.max_experiments, test_mode=args.test_mode, resume=args.resume)
+
