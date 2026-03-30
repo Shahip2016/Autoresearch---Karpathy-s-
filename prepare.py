@@ -9,6 +9,7 @@ from tqdm import tqdm
 DATASETS = {
     'tinyshakespeare': "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
     'wikitext2': "https://raw.githubusercontent.com/pytorch/examples/master/word_language_model/data/wikitext-2/train.txt",
+    'tinystories': "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt",
 }
 
 def download_data(dataset_name, data_dir):

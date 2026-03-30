@@ -60,6 +60,9 @@ DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 DTYPE = torch.float16 if DEVICE == 'cuda' else torch.float32
 USE_AMP = DEVICE == 'cuda'
 
+# Default dataset
+DATASET = 'tinyshakespeare'
+
 # Paths
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 OUT_DIR = os.path.join(os.path.dirname(__file__), 'out')
@@ -71,7 +74,8 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def get_batch(split):
     """Load a batch of data from memmap files."""
-    fname = 'train.bin' if split == 'train' else 'val.bin'
+    prefix = "" if DATASET == 'tinyshakespeare' else f"{DATASET}_"
+    fname = f'{prefix}train.bin' if split == 'train' else f'{prefix}val.bin'
     data = np.memmap(os.path.join(DATA_DIR, fname), dtype=np.uint16, mode='r')
     ix = torch.randint(len(data) - BLOCK_SIZE, (BATCH_SIZE,))
     x = torch.stack([torch.from_numpy(data[i:i+BLOCK_SIZE].astype(np.int64)) for i in ix])
@@ -298,18 +302,20 @@ def estimate_loss(model):
 
 def train():
     # Update globals with argparse args if needed
-    global BATCH_SIZE, LEARNING_RATE, MAX_ITERS
+    global BATCH_SIZE, LEARNING_RATE, MAX_ITERS, DATASET, VOCAB_SIZE
     parser = argparse.ArgumentParser(description="AutoResearch Training — 4GB GPU Optimized")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="Micro batch size")
     parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE, help="Learning rate")
     parser.add_argument("--max-iters", type=int, default=MAX_ITERS, help="Fallback max iters")
     parser.add_argument("--iter", type=int, default=0, help="Current experiment iteration")
+    parser.add_argument("--dataset", type=str, default=DATASET, help="Dataset to use")
     args, unknown = parser.parse_known_args()
     
     BATCH_SIZE = args.batch_size
     LEARNING_RATE = args.learning_rate
     MAX_ITERS = args.max_iters
     iteration = args.iter
+    DATASET = args.dataset
 
 
     logger.info("=" * 60)
@@ -323,11 +329,13 @@ def train():
 
 
     # Load meta
-    meta_path = os.path.join(DATA_DIR, 'meta.pkl')
+    prefix = "" if DATASET == 'tinyshakespeare' else f"{DATASET}_"
+    meta_path = os.path.join(DATA_DIR, f'{prefix}meta.pkl')
     if os.path.exists(meta_path):
         with open(meta_path, 'rb') as f:
             meta = pickle.load(f)
         logger.info(f"Vocab size: {meta['vocab_size']}")
+        VOCAB_SIZE = meta['vocab_size']
 
     # Create model
     model = GPT().to(DEVICE)
