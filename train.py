@@ -422,8 +422,18 @@ def train():
             val_loss = losses['val']
             val_bpb = compute_bpb(val_loss)
 
-            pbar.write(f"  iter {iter_num:5d} | train_loss {train_loss:.4f} | val_loss {val_loss:.4f} | val_bpb {val_bpb:.4f} | lr {lr:.2e} | time {elapsed:.1f}s")
-            pbar.set_postfix({'val_bpb': f'{val_bpb:.4f}', 'lr': f'{lr:.2e}'})
+            # Metrics
+            tokens_per_iter = BATCH_SIZE * GRAD_ACCUM_STEPS * BLOCK_SIZE
+            total_tokens = iter_num * tokens_per_iter
+            tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
+            eta = max(0, MAX_RUNTIME - elapsed)
+
+            pbar.write(f"  iter {iter_num:5d} | train_loss {train_loss:.4f} | val_loss {val_loss:.4f} | val_bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
+            pbar.set_postfix({
+                'val_bpb': f'{val_bpb:.4f}', 
+                'tps': f'{tokens_per_sec/1000:.1f}k',
+                'eta': f'{eta:.0f}s'
+            })
 
             results.append({
                 'iter': iter_num,
@@ -431,6 +441,7 @@ def train():
                 'val_loss': val_loss,
                 'val_bpb': val_bpb,
                 'elapsed': elapsed,
+                'tps': tokens_per_sec,
             })
 
             # TensorBoard logging
