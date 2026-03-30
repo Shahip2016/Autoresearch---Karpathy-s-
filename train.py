@@ -476,8 +476,16 @@ def train():
     import json
     # Write results to TSV
     results_path = os.path.join(os.path.dirname(__file__), 'results.tsv')
+    
+    # Get last known metrics
+    tokens_per_iter = BATCH_SIZE * GRAD_ACCUM_STEPS * BLOCK_SIZE
+    last_step = results[-1]['iter'] if results else 0
+    total_tokens = last_step * tokens_per_iter
+    last_lr = get_lr(last_step)
+
     with open(results_path, 'a') as f:
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\n")
+        # Format: timestamp, loss, bpb, params, experiment_id, lr, tokens
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\t{last_lr:.2e}\t{total_tokens}\n")
 
 
     # Write full history to JSON
