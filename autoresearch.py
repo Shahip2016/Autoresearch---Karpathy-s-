@@ -150,6 +150,16 @@ def run_loop(max_experiments=100, test_mode=False, resume=False):
             print(f"  [IMPROVED] val_bpb improved by {improvement:.6f}! Keeping changes.")
             best_bpb = new_bpb
             save_snapshot(experiment, "kept")
+            
+            # Auto-update README leaderboard
+            try:
+                from update_readme import update_readme
+                update_readme()
+                print("  [README] Leaderboard updated.")
+            except ImportError:
+                print("  [WARNING] update_readme.py not found. Skipping README update.")
+            except Exception as e:
+                print(f"  [WARNING] Failed to update README: {e}")
         else:
             print(f"  [NO IMPROVEMENT] val_bpb {new_bpb:.6f} >= best {best_bpb:.6f}. Reverting.")
             restore_snapshot(snapshot)
