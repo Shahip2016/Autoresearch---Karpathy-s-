@@ -3,10 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AutoResearch Dashboard</title>
+    <title>AutoResearch Dashboard Pro 🔬</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-deep: #050510;
+            --bg-accent: #0f0f23;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary: #6366f1;
+            --secondary: #a855f7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
 
         * {
             margin: 0;
@@ -15,294 +29,361 @@
         }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d0d2b 100%);
-            color: #e0e0f0;
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, var(--bg-deep) 40%);
+            background-color: var(--bg-deep);
+            color: var(--text-main);
             min-height: 100vh;
-            padding: 24px;
+            padding: 40px 20px;
+            line-height: 1.6;
         }
 
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* --- Header --- */
         .header {
             text-align: center;
-            margin-bottom: 32px;
+            margin-bottom: 48px;
+            position: relative;
         }
 
         .header h1 {
-            font-size: 2.2rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #818cf8, #c084fc);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
         }
 
         .header p {
-            color: #8888aa;
-            font-size: 0.95rem;
+            color: var(--text-dim);
+            font-size: 1.1rem;
+            font-weight: 300;
+            max-width: 600px;
+            margin: 0 auto;
         }
 
+        .header::after {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+            z-index: -1;
+        }
+
+        /* --- Controls --- */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 100%);
+            color: white;
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 20px 25px -5px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--glass);
+            color: var(--text-main);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-1px);
+        }
+
+        #fileInput { display: none; }
+
+        /* --- Stats Grid --- */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 32px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
         }
 
         .stat-card {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 20px;
-            backdrop-filter: blur(12px);
-            transition: transform 0.2s, border-color 0.2s;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
         }
 
-        .stat-card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(102, 126, 234, 0.4);
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to right, transparent, var(--glass-border), transparent);
         }
 
-        .stat-card .label {
-            font-size: 0.75rem;
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: #8888aa;
             margin-bottom: 8px;
+            font-weight: 500;
         }
 
-        .stat-card .value {
-            font-size: 1.8rem;
+        .stat-value {
+            font-size: 2.2rem;
             font-weight: 700;
-            color: #667eea;
+            font-variant-numeric: tabular-nums;
         }
 
-        .stat-card .value.green { color: #4ade80; }
-        .stat-card .value.amber { color: #fbbf24; }
-        .stat-card .value.red { color: #f87171; }
+        .stat-value.success { color: var(--success); }
+        .stat-value.primary { color: var(--primary); }
+        .stat-value.warning { color: var(--warning); }
 
-        .chart-container {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 32px;
-            backdrop-filter: blur(12px);
+        /* --- Charts --- */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
         }
 
-        .chart-container h2 {
-            font-size: 1.1rem;
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 32px;
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
             font-weight: 600;
-            margin-bottom: 16px;
-            color: #c0c0e0;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #e2e8f0;
         }
 
         .chart-wrapper {
-            position: relative;
-            height: 350px;
+            height: 320px;
+            width: 100%;
         }
 
-        .results-table {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 24px;
-            backdrop-filter: blur(12px);
+        /* --- Table --- */
+        .table-card {
+            overflow: hidden;
+        }
+
+        .table-wrapper {
             overflow-x: auto;
-        }
-
-        .results-table h2 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-            color: #c0c0e0;
+            margin: 0 -32px; /* Pull to edges of card */
+            padding: 0 32px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            text-align: left;
         }
 
         th {
-            text-align: left;
-            padding: 10px 12px;
+            padding: 16px 12px;
             font-size: 0.75rem;
             text-transform: uppercase;
             letter-spacing: 0.1em;
-            color: #8888aa;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--glass-border);
         }
 
         td {
-            padding: 10px 12px;
-            font-size: 0.88rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            padding: 16px 12px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        tr:hover td {
-            background: rgba(102, 126, 234, 0.05);
+        tbody tr {
+            transition: background 0.2s;
         }
 
-        tr.best td {
-            color: #4ade80;
-            font-weight: 600;
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.02);
         }
 
         .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 8px;
             font-size: 0.7rem;
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
-        .badge.improved {
-            background: rgba(74, 222, 128, 0.15);
-            color: #4ade80;
-        }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+        .badge-primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.2); }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
 
-        .badge.regressed {
-            background: rgba(248, 113, 113, 0.15);
-            color: #f87171;
-        }
-
-        .badge.first {
-            background: rgba(102, 126, 234, 0.15);
-            color: #667eea;
-        }
-
-        .load-section {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-
-        .load-section input[type="file"] {
-            display: none;
-        }
-
-        .load-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .load-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .load-btn:active {
-            transform: translateY(0);
-        }
-
+        /* --- Empty State --- */
         .empty-state {
+            padding: 100px 20px;
             text-align: center;
-            padding: 60px 20px;
-            color: #6666aa;
         }
 
-        .empty-state .icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 24px;
+            opacity: 0.5;
         }
 
+        /* --- Footer --- */
         .footer {
             text-align: center;
-            margin-top: 32px;
-            color: #555577;
-            font-size: 0.8rem;
+            margin-top: 60px;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            font-weight: 300;
+        }
+
+        @media (max-width: 768px) {
+            .charts-container { grid-template-columns: 1fr; }
+            .header h1 { font-size: 2.2rem; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>🔬 AutoResearch Dashboard</h1>
-        <p>Autonomous ML Research Experiment Tracker — 4GB GPU Edition</p>
-    </div>
+    <div class="container">
+        <header class="header">
+            <h1>AutoResearch Pro</h1>
+            <p>Autonomous Deep Learning Research Framework & Experiment Intelligence Laboratory</p>
+        </header>
 
-    <div class="load-section">
-        <input type="file" id="fileInput" accept=".tsv,.txt">
-        <button class="load-btn" onclick="document.getElementById('fileInput').click()">
-            📂 Load results.tsv
-        </button>
-        <button class="load-btn" onclick="loadDemo()" style="margin-left: 8px; background: linear-gradient(135deg, #4a4a6a 0%, #2a2a4a 100%);">
-            Demo Data
-        </button>
-    </div>
+        <section class="controls">
+            <input type="file" id="fileInput" accept=".tsv,.txt">
+            <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                <span>📂</span> Load Results
+            </button>
+            <button class="btn btn-secondary" onclick="loadDemo()">
+                <span>🧪</span> Demo Workspace
+            </button>
+        </section>
 
-    <div id="dashboard" style="display: none;">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="label">Total Experiments</div>
-                <div class="value" id="totalExp">0</div>
+        <div id="dashboard" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Discovery Cycles</div>
+                    <div class="stat-value primary" id="totalExp">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Optimal BPB</div>
+                    <div class="stat-value success" id="bestBpb">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Model Successes</div>
+                    <div class="stat-value warning" id="improvements">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Net Performance Gain</div>
+                    <div class="stat-value" id="totalImprovement">—</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="label">Best Val BPB</div>
-                <div class="value green" id="bestBpb">—</div>
+
+            <div class="charts-container">
+                <div class="card">
+                    <h2><span>📈</span> Metric Evolution (BPB)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="bpbChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2><span>⚡</span> Learning Velocity (TPS)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="tpsChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2><span>🎯</span> Training Dynamics (Loss)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="lossChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2><span>📉</span> LR Decimation Curve</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="lrChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="label">Improvements</div>
-                <div class="value amber" id="improvements">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="label">Total Improvement</div>
-                <div class="value" id="totalImprovement">—</div>
+
+            <div class="card table-card">
+                <h2><span>📋</span> Experiment Intelligence Log</h2>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Cycle Time</th>
+                                <th>Val BPB</th>
+                                <th>Loss</th>
+                                <th>LR</th>
+                                <th>Tokens</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsBody">
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div class="chart-container">
-            <h2>📈 Val BPB Over Experiments</h2>
-            <div class="chart-wrapper">
-                <canvas id="bpbChart"></canvas>
-            </div>
+        <div id="emptyState" class="empty-state">
+            <div class="empty-icon">🛰️</div>
+            <h3>System Standby</h3>
+            <p>Awaiting experiment data telemetry. Load results.tsv to begin analysis.</p>
         </div>
 
-        <div class="chart-container">
-            <h2>📊 Val Loss Over Experiments</h2>
-            <div class="chart-wrapper">
-                <canvas id="lossChart"></canvas>
-            </div>
-        </div>
-
-        <div class="results-table">
-            <h2>📋 Experiment Log</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Timestamp</th>
-                        <th>Val Loss</th>
-                        <th>Val BPB</th>
-                        <th>Params</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="resultsBody">
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="emptyState" class="empty-state">
-        <div class="icon">📊</div>
-        <h3>No Data Loaded</h3>
-        <p style="margin-top: 8px;">Load your results.tsv file or click "Demo Data" to see the dashboard.</p>
-    </div>
-
-    <div class="footer">
-        AutoResearch Dashboard — Inspired by Karpathy's AutoResearch
+        <footer class="footer">
+            Precision Research Tools &middot; Based on Karpathy Loop
+        </footer>
     </div>
 
     <script>
-        let bpbChart = null;
-        let lossChart = null;
+        let charts = {};
 
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -327,6 +408,9 @@
                         val_loss: parseFloat(parts[1]),
                         val_bpb: parseFloat(parts[2]),
                         params: parts.length > 3 ? parseInt(parts[3]) : null,
+                        iter: parts.length > 4 ? parseInt(parts[4]) : null,
+                        lr: parts.length > 5 ? parseFloat(parts[5]) : null,
+                        tokens: parts.length > 6 ? parseInt(parts[6]) : null,
                     });
                 }
             });
@@ -335,16 +419,16 @@
 
         function loadDemo() {
             const demoData = [
-                { run: 1, timestamp: '2026-03-23 14:00:00', val_loss: 1.8500, val_bpb: 2.6690, params: 15234048 },
-                { run: 2, timestamp: '2026-03-23 14:06:00', val_loss: 1.7800, val_bpb: 2.5680, params: 15234048 },
-                { run: 3, timestamp: '2026-03-23 14:12:00', val_loss: 1.8200, val_bpb: 2.6257, params: 15234048 },
-                { run: 4, timestamp: '2026-03-23 14:18:00', val_loss: 1.7200, val_bpb: 2.4814, params: 15234048 },
-                { run: 5, timestamp: '2026-03-23 14:24:00', val_loss: 1.6900, val_bpb: 2.4381, params: 12800000 },
-                { run: 6, timestamp: '2026-03-23 14:30:00', val_loss: 1.7100, val_bpb: 2.4670, params: 12800000 },
-                { run: 7, timestamp: '2026-03-23 14:36:00', val_loss: 1.6500, val_bpb: 2.3804, params: 12800000 },
-                { run: 8, timestamp: '2026-03-23 14:42:00', val_loss: 1.6300, val_bpb: 2.3516, params: 16000000 },
-                { run: 9, timestamp: '2026-03-23 14:48:00', val_loss: 1.6800, val_bpb: 2.4237, params: 16000000 },
-                { run: 10, timestamp: '2026-03-23 14:54:00', val_loss: 1.6100, val_bpb: 2.3228, params: 16000000 },
+                { run: 1, timestamp: '14:00', val_loss: 1.85, val_bpb: 2.669, params: 15e6, lr: 3e-4, tokens: 0 },
+                { run: 2, timestamp: '14:06', val_loss: 1.78, val_bpb: 2.568, params: 15e6, lr: 2.8e-4, tokens: 51200 },
+                { run: 3, timestamp: '14:12', val_loss: 1.82, val_bpb: 2.625, params: 15e6, lr: 2.5e-4, tokens: 102400 },
+                { run: 4, timestamp: '14:18', val_loss: 1.72, val_bpb: 2.481, params: 15e6, lr: 2.2e-4, tokens: 153600 },
+                { run: 5, timestamp: '14:24', val_loss: 1.69, val_bpb: 2.438, params: 12e6, lr: 1.9e-4, tokens: 204800 },
+                { run: 6, timestamp: '14:30', val_loss: 1.71, val_bpb: 2.467, params: 12e6, lr: 1.6e-4, tokens: 256000 },
+                { run: 7, timestamp: '14:36', val_loss: 1.65, val_bpb: 2.380, params: 12e6, lr: 1.3e-4, tokens: 307200 },
+                { run: 8, timestamp: '14:42', val_loss: 1.63, val_bpb: 2.351, params: 16e6, lr: 1.0e-4, tokens: 358400 },
+                { run: 9, timestamp: '14:48', val_loss: 1.68, val_bpb: 2.423, params: 16e6, lr: 0.8e-4, tokens: 409600 },
+                { run: 10, timestamp: '14:54', val_loss: 1.61, val_bpb: 2.322, params: 16e6, lr: 0.5e-4, tokens: 460800 },
             ];
             renderDashboard(demoData);
         }
@@ -353,123 +437,117 @@
             document.getElementById('dashboard').style.display = 'block';
             document.getElementById('emptyState').style.display = 'none';
 
-            // Stats
+            // --- Stats ---
             document.getElementById('totalExp').textContent = data.length;
-
-            let bestBpb = Infinity;
-            let bestRun = null;
+            let bestBpb = Math.min(...data.map(r => r.val_bpb));
             let improvements = 0;
-
+            let runningBest = Infinity;
             data.forEach(r => {
-                if (r.val_bpb < bestBpb) {
-                    bestBpb = r.val_bpb;
-                    bestRun = r;
+                if (r.val_bpb < runningBest) {
+                    runningBest = r.val_bpb;
                     improvements++;
                 }
             });
 
             document.getElementById('bestBpb').textContent = bestBpb.toFixed(4);
-            document.getElementById('improvements').textContent = `${improvements}/${data.length}`;
-
+            document.getElementById('improvements').textContent = `${improvements}`;
+            
             if (data.length >= 2) {
-                const totalImp = data[0].val_bpb - bestBpb;
-                const pct = ((totalImp / data[0].val_bpb) * 100).toFixed(1);
-                document.getElementById('totalImprovement').textContent = `${pct}%`;
+                const totalImprovement = ((data[0].val_bpb - bestBpb) / data[0].val_bpb * 100).toFixed(1);
+                document.getElementById('totalImprovement').textContent = `+${totalImprovement}%`;
             }
 
-            // Charts
-            const labels = data.map(r => `#${r.run}`);
-            const bpbValues = data.map(r => r.val_bpb);
-            const lossValues = data.map(r => r.val_loss);
-
-            const chartOptions = {
+            // --- Charts Configuration ---
+            const commonOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        ticks: { color: '#8888aa' },
-                        grid: { color: 'rgba(255,255,255,0.04)' },
-                    },
-                    y: {
-                        ticks: { color: '#8888aa' },
-                        grid: { color: 'rgba(255,255,255,0.04)' },
-                    },
-                },
+                    x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } }
+                }
             };
 
-            if (bpbChart) bpbChart.destroy();
-            bpbChart = new Chart(document.getElementById('bpbChart'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        data: bpbValues,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointBackgroundColor: bpbValues.map((v, i) => {
-                            if (i === 0) return '#667eea';
-                            return v < Math.min(...bpbValues.slice(0, i)) ? '#4ade80' : '#f87171';
-                        }),
-                        pointRadius: 5,
-                    }],
-                },
-                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Val BPB (lower is better)', color: '#8888aa' } } } },
-            });
+            const labels = data.map(r => r.run);
 
-            if (lossChart) lossChart.destroy();
-            lossChart = new Chart(document.getElementById('lossChart'), {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        data: lossValues,
-                        borderColor: '#764ba2',
-                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
-                        fill: true,
-                        tension: 0.3,
-                        pointRadius: 4,
-                    }],
-                },
-                options: { ...chartOptions, scales: { ...chartOptions.scales, y: { ...chartOptions.scales.y, title: { display: true, text: 'Val Loss', color: '#8888aa' } } } },
-            });
+            // 1. BPB Chart
+            createChart('bpbChart', 'line', labels, data.map(r => r.val_bpb), '#6366f1', true);
+            // 2. Loss Chart
+            createChart('lossChart', 'line', labels, data.map(r => r.val_loss), '#a855f7', true);
+            // 3. LR Chart
+            createChart('lrChart', 'line', labels, data.map(r => r.lr || 0), '#f59e0b', false);
+            // 4. TPS/Tokens Chart
+            createChart('tpsChart', 'bar', labels, data.map(r => r.tokens || 0), '#10b981', false);
 
-            // Table
+            // --- Table Rendering ---
             const tbody = document.getElementById('resultsBody');
             tbody.innerHTML = '';
-            let runningBest = Infinity;
+            runningBest = Infinity;
 
             data.forEach(r => {
                 const tr = document.createElement('tr');
-                let badge = '';
+                let badgeClass = 'badge-danger';
+                let statusText = 'Regressor';
+
                 if (r.run === 1) {
-                    badge = '<span class="badge first">BASELINE</span>';
+                    badgeClass = 'badge-primary';
+                    statusText = 'Baseline';
                 } else if (r.val_bpb < runningBest) {
-                    badge = '<span class="badge improved">★ IMPROVED</span>';
-                } else {
-                    badge = '<span class="badge regressed">REVERTED</span>';
+                    badgeClass = 'badge-success';
+                    statusText = 'Evolution';
                 }
 
-                if (r.val_bpb < runningBest) {
-                    runningBest = r.val_bpb;
-                }
+                if (r.val_bpb < runningBest) runningBest = r.val_bpb;
 
-                if (r === bestRun) tr.classList.add('best');
-
-                const paramsStr = r.params ? r.params.toLocaleString() : 'N/A';
                 tr.innerHTML = `
                     <td>${r.run}</td>
-                    <td>${r.timestamp}</td>
-                    <td>${r.val_loss.toFixed(6)}</td>
-                    <td>${r.val_bpb.toFixed(6)}</td>
-                    <td>${paramsStr}</td>
-                    <td>${badge}</td>
+                    <td style="color: var(--text-dim)">${r.timestamp}</td>
+                    <td style="color: ${r.val_bpb === bestBpb ? 'var(--success)' : 'inherit'}">${r.val_bpb.toFixed(4)}</td>
+                    <td>${r.val_loss.toFixed(4)}</td>
+                    <td style="color: var(--text-dim)">${r.lr ? r.lr.toExponential(1) : '—'}</td>
+                    <td>${r.tokens ? (r.tokens/1000).toFixed(0)+'k' : '—'}</td>
+                    <td><span class="badge ${badgeClass}">${statusText}</span></td>
                 `;
                 tbody.appendChild(tr);
+            });
+        }
+
+        function createChart(id, type, labels, data, color, fill) {
+            if (charts[id]) charts[id].destroy();
+            const ctx = document.getElementById(id).getContext('2d');
+            
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, color + '33');
+            gradient.addColorStop(1, color + '00');
+
+            charts[id] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: color,
+                        backgroundColor: fill ? gradient : color,
+                        fill: fill,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: color,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                        y: { 
+                            grid: { color: 'rgba(255,255,255,0.05)' }, 
+                            ticks: { color: '#64748b' },
+                            beginAtZero: false 
+                        }
+                    }
+                }
             });
         }
     </script>
