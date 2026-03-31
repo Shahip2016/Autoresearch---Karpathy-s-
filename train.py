@@ -136,8 +136,10 @@ class CausalSelfAttention(nn.Module):
         self.rotary = RotaryEmbedding(self.head_dim, BLOCK_SIZE)
         self.q_ln = RMSNorm(self.head_dim)
         self.k_ln = RMSNorm(self.head_dim)
+        self.register_buffer("bias", torch.tril(torch.ones(BLOCK_SIZE, BLOCK_SIZE))
+                                        .view(1, 1, BLOCK_SIZE, BLOCK_SIZE))
 
-    def forward(self, x):
+    def forward(self, x, return_attn=False):
         B, T, C = x.size()
         qkv = self.c_attn(x)
         q, k, v = qkv.split(N_EMBD, dim=2)
@@ -154,10 +156,20 @@ class CausalSelfAttention(nn.Module):
         q, k = apply_rotary_pos_emb(q, k, cos, sin)
 
         # Use scaled_dot_product_attention for memory efficiency
-        y = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=DROPOUT if self.training else 0.0)
+        # Or manual attention if weights are requested
+        attn_weights = None
+        if return_attn:
+            att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+            att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+            att = F.softmax(att, dim=-1)
+            attn_weights = att
+            y = att @ v
+        else:
+            y = F.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=DROPOUT if self.training else 0.0)
+            
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.resid_dropout(self.c_proj(y))
-        return y
+        return y, attn_weights
 
 class MLP(nn.Module):
     """SwiGLU MLP — more parameter efficient than standard FFN."""
@@ -184,10 +196,11 @@ class Block(nn.Module):
         self.ls_1 = nn.Parameter(torch.ones(N_EMBD) * 0.1)
         self.ls_2 = nn.Parameter(torch.ones(N_EMBD) * 0.1)
 
-    def forward(self, x):
-        x = x + self.ls_1 * self.attn(self.ln_1(x))
+    def forward(self, x, return_attn=False):
+        attn_out, weights = self.attn(self.ln_1(x), return_attn=return_attn)
+        x = x + self.ls_1 * attn_out
         x = x + self.ls_2 * self.mlp(self.ln_2(x))
-        return x
+        return x, weights
 
 class GPT(nn.Module):
     def __init__(self):
@@ -216,18 +229,26 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, idx, targets=None):
+    def forward(self, idx, targets=None, return_attn=False):
         B, T = idx.size()
         tok_emb = self.tok_emb(idx)
         x = self.dropout(tok_emb)
+        
+        all_weights = []
         for block in self.blocks:
-            x = block(x)
+            x, weights = block(x, return_attn=return_attn)
+            if return_attn:
+                all_weights.append(weights)
+                
         x = self.ln_f(x)
         logits = self.lm_head(x)
 
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1), label_smoothing=0.1)
+            
+        if return_attn:
+            return logits, loss, torch.stack(all_weights)
         return logits, loss
 
     def count_parameters(self):
