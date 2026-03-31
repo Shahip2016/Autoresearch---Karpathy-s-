@@ -10,6 +10,7 @@ DATASETS = {
     'tinyshakespeare': "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt",
     'wikitext2': "https://raw.githubusercontent.com/pytorch/examples/master/word_language_model/data/wikitext-2/train.txt",
     'tinystories': "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/TinyStoriesV2-GPT4-train.txt",
+    'wikitext103': "https://raw.githubusercontent.com/lexnederbragt/python-course/master/data/wikitext-103-train-subset.txt",
 }
 
 def download_data(dataset_name, data_dir):
@@ -21,17 +22,26 @@ def download_data(dataset_name, data_dir):
             return None
         
         print(f"Downloading {dataset_name} from {url}...")
-        response = requests.get(url)
-        with open(input_file_path, 'w', encoding='utf-8') as f:
-            f.write(response.text)
+        response = requests.get(url, stream=True)
+        total_size = int(response.headers.get('content-length', 0))
+        
+        with open(input_file_path, 'wb') as f:
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=dataset_name) as pbar:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        pbar.update(len(chunk))
         print("Download complete.")
     else:
         print(f"Dataset '{dataset_name}' already exists at {input_file_path}.")
     return input_file_path
 
-def prepare_data(input_file_path, data_dir, dataset_name):
-    with open(input_file_path, 'r', encoding='utf-8') as f:
-        data = f.read()
+def prepare_data(input_file_path, data_dir, dataset_name, max_chars=None):
+    with open(input_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        if max_chars:
+            data = f.read(max_chars)
+        else:
+            data = f.read()
     
     print(f"Length of dataset in characters: {len(data):,}")
     
@@ -83,6 +93,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare dataset for AutoResearch")
     parser.add_argument('--dataset', type=str, default='tinyshakespeare', 
                         choices=list(DATASETS.keys()), help='Dataset to download and prepare')
+    parser.add_argument('--max-chars', type=int, default=None, help='Limit the dataset size for faster preparation/training')
     args = parser.parse_args()
 
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -90,5 +101,5 @@ if __name__ == "__main__":
     
     path = download_data(args.dataset, data_dir)
     if path:
-        prepare_data(path, data_dir, args.dataset)
+        prepare_data(path, data_dir, args.dataset, args.max_chars)
 
