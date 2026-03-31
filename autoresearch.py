@@ -19,8 +19,40 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_PY = os.path.join(SCRIPT_DIR, 'train.py')
 HISTORY_DIR = os.path.join(SCRIPT_DIR, 'history')
 RESULTS_FILE = os.path.join(SCRIPT_DIR, 'results.tsv')
+EXPERIMENTS_FILE = os.path.join(SCRIPT_DIR, 'experiments.json')
 
 os.makedirs(HISTORY_DIR, exist_ok=True)
+
+def get_git_sha():
+    """Get the current Git commit SHA."""
+    try:
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=SCRIPT_DIR).decode().strip()
+    except Exception:
+        return "unknown"
+
+def log_experiment_metadata(iteration, status, bpb):
+    """Log detailed metadata for an experiment."""
+    import json
+    metadata = {
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'iteration': iteration,
+        'status': status,
+        'val_bpb': bpb,
+        'git_sha': get_git_sha(),
+        'args': sys.argv[1:]
+    }
+    
+    experiments = []
+    if os.path.exists(EXPERIMENTS_FILE):
+        try:
+            with open(EXPERIMENTS_FILE, 'r') as f:
+                experiments = json.load(f)
+        except Exception:
+            pass
+            
+    experiments.append(metadata)
+    with open(EXPERIMENTS_FILE, 'w') as f:
+        json.dump(experiments, f, indent=4)
 
 def read_last_bpb():
     """Read the last val_bpb from results.tsv."""
@@ -160,8 +192,11 @@ def run_loop(max_experiments=100, test_mode=False, resume=False):
                 print("  [WARNING] update_readme.py not found. Skipping README update.")
             except Exception as e:
                 print(f"  [WARNING] Failed to update README: {e}")
+            
+            log_experiment_metadata(experiment, "IMPROVED", new_bpb)
         else:
             print(f"  [NO IMPROVEMENT] val_bpb {new_bpb:.6f} >= best {best_bpb:.6f}. Reverting.")
+            log_experiment_metadata(experiment, "REVERTED", new_bpb)
             restore_snapshot(snapshot)
 
         print(f"\n  Current best val_bpb: {best_bpb:.6f}")

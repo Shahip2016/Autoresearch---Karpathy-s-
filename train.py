@@ -525,6 +525,24 @@ def train():
     with open(json_path, 'w') as f:
         json.dump(results, f, indent=4)
 
+    # Save configuration
+    config = {
+        'vocab_size': VOCAB_SIZE,
+        'block_size': BLOCK_SIZE,
+        'n_layer': N_LAYER,
+        'n_head': N_HEAD,
+        'n_embd': N_EMBD,
+        'dropout': DROPOUT,
+        'batch_size': BATCH_SIZE,
+        'grad_accum_steps': GRAD_ACCUM_STEPS,
+        'learning_rate': LEARNING_RATE,
+        'weight_decay': WEIGHT_DECAY,
+        'dataset': DATASET,
+        'param_count': param_count,
+    }
+    with open(os.path.join(OUT_DIR, 'config.json'), 'w') as f:
+        json.dump(config, f, indent=4)
+
     # Generate sample text
     if os.path.exists(meta_path):
         with open(meta_path, 'rb') as f:
