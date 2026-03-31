@@ -270,6 +270,22 @@ def compute_bpb(val_loss):
     bpb = val_loss / math.log(2)
     return bpb
 
+def compute_accuracy(logits, targets, topk=(1, 5)):
+    """Compute top-k accuracy."""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = targets.size(0)
+
+        _, pred = logits.topk(maxk, 2, True, True)
+        pred = pred.transpose(1, 2)
+        correct = pred.eq(targets.unsqueeze(1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:, :k].reshape(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / (batch_size * targets.size(1))).item())
+        return res
+
 # =============================================================================
 # Training Loop
 # =============================================================================
@@ -291,12 +307,21 @@ def estimate_loss(model):
     model.eval()
     for split in ['train', 'val']:
         losses = torch.zeros(EVAL_ITERS)
+        acc1s = torch.zeros(EVAL_ITERS)
+        acc5s = torch.zeros(EVAL_ITERS)
         for k in range(EVAL_ITERS):
             X, Y = get_batch(split)
             with torch.amp.autocast('cuda', enabled=USE_AMP, dtype=DTYPE):
-                _, loss = model(X, Y)
+                logits, loss = model(X, Y)
             losses[k] = loss.item()
-        out[split] = losses.mean().item()
+            acc1, acc5 = compute_accuracy(logits, Y)
+            acc1s[k] = acc1
+            acc5s[k] = acc5
+        out[split] = {
+            'loss': losses.mean().item(),
+            'acc1': acc1s.mean().item(),
+            'acc5': acc5s.mean().item()
+        }
     model.train()
     return out
 
@@ -417,9 +442,11 @@ def train():
 
         # Evaluation
         if iter_num > 0 and iter_num % EVAL_INTERVAL == 0:
-            losses = estimate_loss(model)
-            train_loss = losses['train']
-            val_loss = losses['val']
+            metrics = estimate_loss(model)
+            train_loss = metrics['train']['loss']
+            val_loss = metrics['val']['loss']
+            val_acc1 = metrics['val']['acc1']
+            val_acc5 = metrics['val']['acc5']
             val_bpb = compute_bpb(val_loss)
 
             # Metrics
@@ -428,17 +455,19 @@ def train():
             tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
             eta = max(0, MAX_RUNTIME - elapsed)
 
-            pbar.write(f"  iter {iter_num:5d} | train_loss {train_loss:.4f} | val_loss {val_loss:.4f} | val_bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
+            pbar.write(f"  iter {iter_num:5d} | loss {val_loss:.4f} | acc1 {val_acc1:.2f}% | acc5 {val_acc5:.2f}% | bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
             pbar.set_postfix({
-                'val_bpb': f'{val_bpb:.4f}', 
-                'tps': f'{tokens_per_sec/1000:.1f}k',
-                'eta': f'{eta:.0f}s'
+                'acc1': f'{val_acc1:.1f}%',
+                'bpb': f'{val_bpb:.3f}', 
+                'tps': f'{tokens_per_sec/1000:.1f}k'
             })
 
             results.append({
                 'iter': iter_num,
                 'train_loss': train_loss,
                 'val_loss': val_loss,
+                'val_acc1': val_acc1,
+                'val_acc5': val_acc5,
                 'val_bpb': val_bpb,
                 'elapsed': elapsed,
                 'tps': tokens_per_sec,
@@ -447,6 +476,8 @@ def train():
             # TensorBoard logging
             writer.add_scalar('Loss/train', train_loss, iter_num)
             writer.add_scalar('Loss/val', val_loss, iter_num)
+            writer.add_scalar('Metric/val_acc1', val_acc1, iter_num)
+            writer.add_scalar('Metric/val_acc5', val_acc5, iter_num)
             writer.add_scalar('Metric/val_bpb', val_bpb, iter_num)
             writer.add_scalar('Params/lr', lr, iter_num)
 
@@ -463,11 +494,12 @@ def train():
                     break
 
     # Final evaluation
-    losses = estimate_loss(model)
-    final_val_loss = losses['val']
+    metrics = estimate_loss(model)
+    final_val_loss = metrics['val']['loss']
+    final_acc1 = metrics['val']['acc1']
     final_bpb = compute_bpb(final_val_loss)
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"FINAL | val_loss {final_val_loss:.4f} | val_bpb {final_bpb:.4f}")
+    logger.info(f"FINAL | loss {final_val_loss:.4f} | acc1 {final_acc1:.2f}% | bpb {final_bpb:.4f}")
     logger.info(f"{'=' * 60}")
 
     # Save final checkpoint
@@ -484,8 +516,8 @@ def train():
     last_lr = get_lr(last_step)
 
     with open(results_path, 'a') as f:
-        # Format: timestamp, loss, bpb, params, experiment_id, lr, tokens
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\t{last_lr:.2e}\t{total_tokens}\n")
+        # Format: timestamp, loss, bpb, params, experiment_id, lr, tokens, acc1
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\t{last_lr:.2e}\t{total_tokens}\t{final_acc1:.2f}\n")
 
 
     # Write full history to JSON
