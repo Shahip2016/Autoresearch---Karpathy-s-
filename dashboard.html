@@ -51,13 +51,15 @@
         }
 
         .header h1 {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 800;
-            letter-spacing: -0.02em;
-            background: linear-gradient(to right, #818cf8, #c084fc);
+            letter-spacing: -0.04em;
+            background: linear-gradient(to right, #818cf8, #c084fc, #fb7185);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 12px;
+            text-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
         }
 
         .header p {
@@ -347,6 +349,18 @@
                         <canvas id="lrChart"></canvas>
                     </div>
                 </div>
+                <div class="card">
+                    <h2><span>🎯</span> Accuracy Evolution (%)</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="accChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h2><span>⚖️</span> Efficiency: Params vs BPB</h2>
+                    <div class="chart-wrapper">
+                        <canvas id="scatterChart"></canvas>
+                    </div>
+                </div>
             </div>
 
             <div class="card table-card">
@@ -359,8 +373,10 @@
                                 <th>Cycle Time</th>
                                 <th>Val BPB</th>
                                 <th>Loss</th>
+                                <th>Acc%</th>
                                 <th>LR</th>
                                 <th>Tokens</th>
+                                <th>Params</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -411,6 +427,7 @@
                         iter: parts.length > 4 ? parseInt(parts[4]) : null,
                         lr: parts.length > 5 ? parseFloat(parts[5]) : null,
                         tokens: parts.length > 6 ? parseInt(parts[6]) : null,
+                        acc1: parts.length > 7 ? parseFloat(parts[7]) : null,
                     });
                 }
             });
@@ -419,16 +436,16 @@
 
         function loadDemo() {
             const demoData = [
-                { run: 1, timestamp: '14:00', val_loss: 1.85, val_bpb: 2.669, params: 15e6, lr: 3e-4, tokens: 0 },
-                { run: 2, timestamp: '14:06', val_loss: 1.78, val_bpb: 2.568, params: 15e6, lr: 2.8e-4, tokens: 51200 },
-                { run: 3, timestamp: '14:12', val_loss: 1.82, val_bpb: 2.625, params: 15e6, lr: 2.5e-4, tokens: 102400 },
-                { run: 4, timestamp: '14:18', val_loss: 1.72, val_bpb: 2.481, params: 15e6, lr: 2.2e-4, tokens: 153600 },
-                { run: 5, timestamp: '14:24', val_loss: 1.69, val_bpb: 2.438, params: 12e6, lr: 1.9e-4, tokens: 204800 },
-                { run: 6, timestamp: '14:30', val_loss: 1.71, val_bpb: 2.467, params: 12e6, lr: 1.6e-4, tokens: 256000 },
-                { run: 7, timestamp: '14:36', val_loss: 1.65, val_bpb: 2.380, params: 12e6, lr: 1.3e-4, tokens: 307200 },
-                { run: 8, timestamp: '14:42', val_loss: 1.63, val_bpb: 2.351, params: 16e6, lr: 1.0e-4, tokens: 358400 },
-                { run: 9, timestamp: '14:48', val_loss: 1.68, val_bpb: 2.423, params: 16e6, lr: 0.8e-4, tokens: 409600 },
-                { run: 10, timestamp: '14:54', val_loss: 1.61, val_bpb: 2.322, params: 16e6, lr: 0.5e-4, tokens: 460800 },
+                { run: 1, timestamp: '14:00', val_loss: 1.85, val_bpb: 2.669, params: 15e6, lr: 3e-4, tokens: 0, acc1: 35.5 },
+                { run: 2, timestamp: '14:06', val_loss: 1.78, val_bpb: 2.568, params: 15e6, lr: 2.8e-4, tokens: 51200, acc1: 38.2 },
+                { run: 3, timestamp: '14:12', val_loss: 1.82, val_bpb: 2.625, params: 15e6, lr: 2.5e-4, tokens: 102400, acc1: 37.1 },
+                { run: 4, timestamp: '14:18', val_loss: 1.72, val_bpb: 2.481, params: 15e6, lr: 2.2e-4, tokens: 153600, acc1: 41.5 },
+                { run: 5, timestamp: '14:24', val_loss: 1.69, val_bpb: 2.438, params: 12e6, lr: 1.9e-4, tokens: 204800, acc1: 43.1 },
+                { run: 6, timestamp: '14:30', val_loss: 1.71, val_bpb: 2.467, params: 12e6, lr: 1.6e-4, tokens: 256000, acc1: 42.4 },
+                { run: 7, timestamp: '14:36', val_loss: 1.65, val_bpb: 2.380, params: 12e6, lr: 1.3e-4, tokens: 307200, acc1: 45.3 },
+                { run: 8, timestamp: '14:42', val_loss: 1.63, val_bpb: 2.351, params: 16e6, lr: 1.0e-4, tokens: 358400, acc1: 46.8 },
+                { run: 9, timestamp: '14:48', val_loss: 1.68, val_bpb: 2.423, params: 16e6, lr: 0.8e-4, tokens: 409600, acc1: 45.2 },
+                { run: 10, timestamp: '14:54', val_loss: 1.61, val_bpb: 2.322, params: 16e6, lr: 0.5e-4, tokens: 460800, acc1: 48.9 },
             ];
             renderDashboard(demoData);
         }
@@ -469,6 +486,7 @@
             };
 
             const labels = data.map(r => r.run);
+            const bestAcc = Math.max(...data.map(r => r.acc1 || 0));
 
             // 1. BPB Chart
             createChart('bpbChart', 'line', labels, data.map(r => r.val_bpb), '#6366f1', true);
@@ -478,6 +496,10 @@
             createChart('lrChart', 'line', labels, data.map(r => r.lr || 0), '#f59e0b', false);
             // 4. TPS/Tokens Chart
             createChart('tpsChart', 'bar', labels, data.map(r => r.tokens || 0), '#10b981', false);
+            // 5. Accuracy Chart
+            createChart('accChart', 'line', labels, data.map(r => r.acc1 || 0), '#ec4899', true);
+            // 6. Scatter (Params vs BPB)
+            createScatterChart('scatterChart', data.map(r => ({ x: r.params, y: r.val_bpb })), '#f43f5e');
 
             // --- Table Rendering ---
             const tbody = document.getElementById('resultsBody');
@@ -504,8 +526,10 @@
                     <td style="color: var(--text-dim)">${r.timestamp}</td>
                     <td style="color: ${r.val_bpb === bestBpb ? 'var(--success)' : 'inherit'}">${r.val_bpb.toFixed(4)}</td>
                     <td>${r.val_loss.toFixed(4)}</td>
+                    <td style="color: #fb7185">${r.acc1 ? r.acc1.toFixed(1)+'%' : '—'}</td>
                     <td style="color: var(--text-dim)">${r.lr ? r.lr.toExponential(1) : '—'}</td>
                     <td>${r.tokens ? (r.tokens/1000).toFixed(0)+'k' : '—'}</td>
+                    <td style="font-size: 0.8rem">${r.params ? (r.params/1e6).toFixed(1)+'M' : '—'}</td>
                     <td><span class="badge ${badgeClass}">${statusText}</span></td>
                 `;
                 tbody.appendChild(tr);
@@ -545,6 +569,39 @@
                             grid: { color: 'rgba(255,255,255,0.05)' }, 
                             ticks: { color: '#64748b' },
                             beginAtZero: false 
+                        }
+                    }
+                }
+            });
+        }
+        function createScatterChart(id, scatterData, color) {
+            if (charts[id]) charts[id].destroy();
+            const ctx = document.getElementById(id).getContext('2d');
+            charts[id] = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Architectures',
+                        data: scatterData,
+                        backgroundColor: color,
+                        pointRadius: 6,
+                        pointHoverRadius: 9
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Parameters', color: '#64748b' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }, 
+                            ticks: { color: '#64748b' } 
+                        },
+                        y: { 
+                            title: { display: true, text: 'Val BPB', color: '#64748b' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }, 
+                            ticks: { color: '#64748b' } 
                         }
                     }
                 }
