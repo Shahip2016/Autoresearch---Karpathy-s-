@@ -291,6 +291,10 @@ def compute_bpb(val_loss):
     bpb = val_loss / math.log(2)
     return bpb
 
+def compute_perplexity(loss):
+    """Convert cross-entropy loss to Perplexity."""
+    return math.exp(min(loss, 100))  # Cap to avoid overflow
+
 def compute_accuracy(logits, targets, topk=(1, 5)):
     """Compute top-k accuracy."""
     with torch.no_grad():
@@ -469,6 +473,7 @@ def train():
             val_acc1 = metrics['val']['acc1']
             val_acc5 = metrics['val']['acc5']
             val_bpb = compute_bpb(val_loss)
+            val_ppl = compute_perplexity(val_loss)
 
             # Metrics
             tokens_per_iter = BATCH_SIZE * GRAD_ACCUM_STEPS * BLOCK_SIZE
@@ -476,7 +481,7 @@ def train():
             tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
             eta = max(0, MAX_RUNTIME - elapsed)
 
-            pbar.write(f"  iter {iter_num:5d} | loss {val_loss:.4f} | acc1 {val_acc1:.2f}% | acc5 {val_acc5:.2f}% | bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
+            pbar.write(f"  iter {iter_num:5d} | loss {val_loss:.4f} | ppl {val_ppl:.2f} | acc1 {val_acc1:.2f}% | bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
             pbar.set_postfix({
                 'acc1': f'{val_acc1:.1f}%',
                 'bpb': f'{val_bpb:.3f}', 
@@ -490,6 +495,7 @@ def train():
                 'val_acc1': val_acc1,
                 'val_acc5': val_acc5,
                 'val_bpb': val_bpb,
+                'val_ppl': val_ppl,
                 'elapsed': elapsed,
                 'tps': tokens_per_sec,
             })
@@ -500,6 +506,7 @@ def train():
             writer.add_scalar('Metric/val_acc1', val_acc1, iter_num)
             writer.add_scalar('Metric/val_acc5', val_acc5, iter_num)
             writer.add_scalar('Metric/val_bpb', val_bpb, iter_num)
+            writer.add_scalar('Metric/val_ppl', val_ppl, iter_num)
             writer.add_scalar('Params/lr', lr, iter_num)
 
 
@@ -519,8 +526,9 @@ def train():
     final_val_loss = metrics['val']['loss']
     final_acc1 = metrics['val']['acc1']
     final_bpb = compute_bpb(final_val_loss)
+    final_ppl = compute_perplexity(final_val_loss)
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"FINAL | loss {final_val_loss:.4f} | acc1 {final_acc1:.2f}% | bpb {final_bpb:.4f}")
+    logger.info(f"FINAL | loss {final_val_loss:.4f} | ppl {final_ppl:.2f} | acc1 {final_acc1:.2f}% | bpb {final_bpb:.4f}")
     logger.info(f"{'=' * 60}")
 
     # Save final checkpoint
@@ -537,8 +545,8 @@ def train():
     last_lr = get_lr(last_step)
 
     with open(results_path, 'a') as f:
-        # Format: timestamp, loss, bpb, params, experiment_id, lr, tokens, acc1
-        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\t{last_lr:.2e}\t{total_tokens}\t{final_acc1:.2f}\n")
+        # Format: timestamp, loss, bpb, params, experiment_id, lr, tokens, acc1, ppl
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\t{final_val_loss:.6f}\t{final_bpb:.6f}\t{param_count}\t{iteration}\t{last_lr:.2e}\t{total_tokens}\t{final_acc1:.2f}\t{final_ppl:.2f}\n")
 
 
     # Write full history to JSON
