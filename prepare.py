@@ -4,6 +4,7 @@ import numpy as np
 import argparse
 import pickle
 from tqdm import tqdm
+from collections import Counter
 
 # Available datasets
 DATASETS = {
@@ -89,17 +90,58 @@ def prepare_data(input_file_path, data_dir, dataset_name, max_chars=None):
     
     print(f"Preparation complete. Files saved in 'data/' with prefix '{prefix}'.")
 
+def print_stats(input_file_path):
+    with open(input_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+        data = f.read()
+    
+    print(f"\n{'='*30}")
+    print(f" DATASET PROFILER: {os.path.basename(input_file_path)}")
+    print(f"{'='*30}")
+    print(f"Total characters: {len(data):,}")
+    
+    chars = Counter(data)
+    unique_chars = sorted(chars.keys())
+    print(f"Unique characters: {len(unique_chars)}")
+    
+    # Frequency analysis
+    most_common = chars.most_common(10)
+    least_common = chars.most_common()[:-11:-1]
+    
+    print("\nTop 10 Most Frequent:")
+    for char, count in most_common:
+        repr_char = repr(char)
+        print(f"  {repr_char:10} : {count:8,}")
+        
+    print("\nTop 10 Least Frequent:")
+    for char, count in least_common:
+        repr_char = repr(char)
+        print(f"  {repr_char:10} : {count:8,}")
+        
+    # Density / Entropy-like stats
+    whitespace = chars.get(' ', 0) + chars.get('\n', 0) + chars.get('\t', 0)
+    print(f"\nWhitespace density: {whitespace / len(data):.2%}")
+    print(f"{'='*30}\n")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Prepare dataset for AutoResearch")
     parser.add_argument('--dataset', type=str, default='tinyshakespeare', 
                         choices=list(DATASETS.keys()), help='Dataset to download and prepare')
     parser.add_argument('--max-chars', type=int, default=None, help='Limit the dataset size for faster preparation/training')
+    parser.add_argument('--stats', action='store_true', help='Show dataset statistics during preparation')
+    parser.add_argument('--stats-only', action='store_true', help='Only show dataset statistics and exit')
     args = parser.parse_args()
 
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
     os.makedirs(data_dir, exist_ok=True)
     
     path = download_data(args.dataset, data_dir)
-    if path:
+    if not path:
+        exit(1)
+        
+    if args.stats_only:
+        print_stats(path)
+    else:
+        if args.stats:
+            print_stats(path)
         prepare_data(path, data_dir, args.dataset, args.max_chars)
 
