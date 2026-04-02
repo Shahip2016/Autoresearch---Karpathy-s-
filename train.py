@@ -375,6 +375,7 @@ def train():
     parser.add_argument("--iter", type=int, default=0, help="Current experiment iteration")
     parser.add_argument("--dataset", type=str, default=DATASET, help="Dataset to use")
     parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")
+    parser.add_argument("--find-lr", action="store_true", help="Run Learning Rate Finder")
     args, unknown = parser.parse_known_args()
     
     BATCH_SIZE = args.batch_size
@@ -643,5 +644,70 @@ def train():
     return final_bpb
 
 
+def find_lr():
+    # Similar to train but with exponential LR growth
+    global BATCH_SIZE, LEARNING_RATE, DATASET, VOCAB_SIZE
+    parser = argparse.ArgumentParser(description="AutoResearch LR Finder")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument("--dataset", type=str, default=DATASET)
+    parser.add_argument("--start-lr", type=float, default=1e-7)
+    parser.add_argument("--end-lr", type=float, default=1e-1)
+    parser.add_argument("--iters", type=int, default=100)
+    args, _ = parser.parse_known_args()
+
+    # Create model
+    model = GPT().to(DEVICE)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.start_lr)
+    scaler = torch.amp.GradScaler('cuda', enabled=USE_AMP)
+
+    lr_factor = (args.end_lr / args.start_lr) ** (1/args.iters)
+    lrs = []
+    losses = []
+
+    logger.info(f"Starting LR Finder: {args.start_lr:.1e} -> {args.end_lr:.1e} over {args.iters} iters")
+
+    model.train()
+    for i in range(args.iters):
+        lr = args.start_lr * (lr_factor ** i)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
+        
+        X, Y = get_batch('train')
+        optimizer.zero_grad(set_to_none=True)
+        with torch.amp.autocast('cuda', enabled=USE_AMP, dtype=DTYPE):
+            _, loss = model(X, Y)
+        
+        if torch.isnan(loss):
+            break
+            
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+
+        lrs.append(lr)
+        losses.append(loss.item())
+        
+        if i % 10 == 0:
+            logger.info(f"  step {i:3d} | lr {lr:.2e} | loss {loss.item():.4f}")
+        
+        if i > 10 and loss.item() > min(losses) * 4:
+            logger.info(f"Loss exploded at step {i}, stopping.")
+            break
+
+    # Save results
+    import csv
+    with open('lr_finder_results.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['lr', 'loss'])
+        writer.writerows(zip(lrs, losses))
+    logger.info("Results saved to lr_finder_results.csv")
+
+
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--find-lr", action="store_true")
+    args, _ = parser.parse_known_args()
+    if args.find_lr:
+        find_lr()
+    else:
+        train()
