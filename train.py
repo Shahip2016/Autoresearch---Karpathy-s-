@@ -403,7 +403,7 @@ def train():
         except Exception as e:
             logger.warning(f"Warning: torch.compile failed: {e}")
 
-    # Optimizer — AdamW
+    # Optimizer — AdamW with weight decay exclusion for 1D params
     param_dict = {pn: p for pn, p in model.named_parameters() if p.requires_grad}
     decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
     nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
@@ -411,6 +411,9 @@ def train():
         {'params': decay_params, 'weight_decay': WEIGHT_DECAY},
         {'params': nodecay_params, 'weight_decay': 0.0},
     ]
+    num_decay_params = sum(p.numel() for p in decay_params)
+    num_nodecay_params = sum(p.numel() for p in nodecay_params)
+    logger.info(f"Optimizing {num_decay_params:,} decay params and {num_nodecay_params:,} no-decay params")
     optimizer = torch.optim.AdamW(optim_groups, lr=LEARNING_RATE, betas=(BETA1, BETA2), fused=DEVICE=='cuda')
 
     # AMP scaler
@@ -459,9 +462,9 @@ def train():
             scaler.scale(loss).backward()
             accum_loss += loss.item()
 
-        # Gradient clipping
+        # Gradient clipping & logging
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
         scaler.step(optimizer)
         scaler.update()
 
@@ -481,11 +484,11 @@ def train():
             tokens_per_sec = total_tokens / elapsed if elapsed > 0 else 0
             eta = max(0, MAX_RUNTIME - elapsed)
 
-            pbar.write(f"  iter {iter_num:5d} | loss {val_loss:.4f} | ppl {val_ppl:.2f} | acc1 {val_acc1:.2f}% | bpb {val_bpb:.4f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
+            pbar.write(f"  iter {iter_num:5d} | loss {val_loss:.4f} | ppl {val_ppl:.2f} | acc1 {val_acc1:.2f}% | bpb {val_bpb:.4f} | g_norm {grad_norm:.3f} | tps {tokens_per_sec:,.0f} | eta {eta:.0f}s")
             pbar.set_postfix({
                 'acc1': f'{val_acc1:.1f}%',
                 'bpb': f'{val_bpb:.3f}', 
-                'tps': f'{tokens_per_sec/1000:.1f}k'
+                'gnorm': f'{grad_norm:.2f}'
             })
 
             results.append({
@@ -508,6 +511,7 @@ def train():
             writer.add_scalar('Metric/val_bpb', val_bpb, iter_num)
             writer.add_scalar('Metric/val_ppl', val_ppl, iter_num)
             writer.add_scalar('Params/lr', lr, iter_num)
+            writer.add_scalar('Params/grad_norm', grad_norm, iter_num)
 
 
             if val_loss < best_val_loss:
