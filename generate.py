@@ -73,7 +73,7 @@ def encode_prompt(prompt, stoi):
     return torch.tensor([ids], dtype=torch.long, device=DEVICE)
 
 
-def generate_text(model, itos, prompt_ids, max_tokens, temperature, top_k):
+def generate_text(model, itos, prompt_ids, max_tokens, temperature, top_k, top_p):
     """Generate text from the model and return the decoded string."""
     with torch.no_grad():
         output_ids = model.generate(
@@ -81,6 +81,7 @@ def generate_text(model, itos, prompt_ids, max_tokens, temperature, top_k):
             max_new_tokens=max_tokens,
             temperature=temperature,
             top_k=top_k,
+            top_p=top_p,
         )
     tokens = output_ids[0].tolist()
     return ''.join([itos[t] for t in tokens])
@@ -108,6 +109,8 @@ Examples:
                         help='Sampling temperature (default: 0.8)')
     parser.add_argument('--top-k', type=int, default=40,
                         help='Top-k sampling (default: 40)')
+    parser.add_argument('--top-p', type=float, default=0.9,
+                        help='Top-p (Nucleus) sampling (default: 0.9)')
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for reproducibility')
     parser.add_argument('--save', type=str, default=None,
@@ -133,11 +136,11 @@ Examples:
         prompt_ids = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
         print("Prompt: (empty — free generation)")
 
-    print(f"Temperature: {args.temperature}, Top-k: {args.top_k}, Max tokens: {args.max_tokens}")
+    print(f"Temperature: {args.temperature}, Top-k: {args.top_k}, Top-p: {args.top_p}, Max tokens: {args.max_tokens}")
     print(f"{'─' * 60}")
 
     # Generate
-    text = generate_text(model, itos, prompt_ids, args.max_tokens, args.temperature, args.top_k)
+    text = generate_text(model, itos, prompt_ids, args.max_tokens, args.temperature, args.top_k, args.top_p)
     print(text)
 
     # Save if requested
