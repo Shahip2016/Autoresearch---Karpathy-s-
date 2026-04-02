@@ -374,6 +374,7 @@ def train():
     parser.add_argument("--max-iters", type=int, default=MAX_ITERS, help="Fallback max iters")
     parser.add_argument("--iter", type=int, default=0, help="Current experiment iteration")
     parser.add_argument("--dataset", type=str, default=DATASET, help="Dataset to use")
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")
     args, unknown = parser.parse_known_args()
     
     BATCH_SIZE = args.batch_size
@@ -381,6 +382,7 @@ def train():
     MAX_ITERS = args.max_iters
     iteration = args.iter
     DATASET = args.dataset
+    RESUME_PATH = args.resume
 
 
     logger.info("=" * 60)
@@ -434,6 +436,28 @@ def train():
     # AMP scaler
     scaler = torch.amp.GradScaler('cuda', enabled=USE_AMP)
 
+    # Resume logic
+    iter_offset = 0
+    best_val_loss = float('inf')
+    if RESUME_PATH:
+        if os.path.exists(RESUME_PATH):
+            logger.info(f"Resuming from checkpoint: {RESUME_PATH}")
+            checkpoint = torch.load(RESUME_PATH, map_location=DEVICE, weights_only=False)
+            model_state = checkpoint.get('model', checkpoint) # fallback to old weight-only format
+            model.load_state_dict(model_state)
+            if 'optimizer' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                logger.info("  Loaded optimizer state.")
+            if 'iter' in checkpoint:
+                iter_offset = checkpoint['iter'] + 1
+                logger.info(f"  Resuming from iteration {iter_offset}")
+            if 'best_val_loss' in checkpoint:
+                best_val_loss = checkpoint['best_val_loss']
+                logger.info(f"  Best val loss from checkpoint: {best_val_loss:.4f}")
+        else:
+            logger.error(f"Resume path {RESUME_PATH} does not exist!")
+            sys.exit(1)
+
     # Timing
     if DEVICE == 'cuda':
         start_event = torch.cuda.Event(enable_timing=True)
@@ -443,11 +467,10 @@ def train():
         t0 = time.time()
 
     from tqdm import tqdm
-    best_val_loss = float('inf')
     results = []
     patience_counter = 0
 
-    pbar = tqdm(range(MAX_ITERS), desc="Training")
+    pbar = tqdm(range(iter_offset, MAX_ITERS), desc="Training")
     for iter_num in pbar:
         # Check time budget
         if DEVICE == 'cuda':
@@ -532,7 +555,14 @@ def train():
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 patience_counter = 0
-                torch.save(model.state_dict(), os.path.join(OUT_DIR, 'best_model.pt'))
+                checkpoint = {
+                    'model': model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'iter': iter_num,
+                    'best_val_loss': best_val_loss,
+                    'config': config if 'config' in locals() else None
+                }
+                torch.save(checkpoint, os.path.join(OUT_DIR, 'best_model.pt'))
                 pbar.write(f"    -> New best val_loss! Saved checkpoint.")
             else:
                 patience_counter += 1
@@ -551,7 +581,13 @@ def train():
     logger.info(f"{'=' * 60}")
 
     # Save final checkpoint
-    torch.save(model.state_dict(), os.path.join(OUT_DIR, 'final_model.pt'))
+    checkpoint = {
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'iter': last_step if 'last_step' in locals() else iter_num,
+        'best_val_loss': best_val_loss,
+    }
+    torch.save(checkpoint, os.path.join(OUT_DIR, 'final_model.pt'))
 
     import json
     # Write results to TSV
