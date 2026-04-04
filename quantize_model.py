@@ -5,6 +5,8 @@ from train import GPT
 
 def quantize_model(checkpoint_path, out_path):
     print(f"Loading checkpoint from {checkpoint_path}")
+    original_size = os.path.getsize(checkpoint_path) / (1024 * 1024)
+    print(f"Original model size: {original_size:.2f} MB")
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     model = GPT()
     
@@ -23,6 +25,9 @@ def quantize_model(checkpoint_path, out_path):
     
     print(f"Saving quantized model to {out_path}")
     torch.save(quantized_model.state_dict(), out_path)
+    quantized_size = os.path.getsize(out_path) / (1024 * 1024)
+    print(f"Quantized model size: {quantized_size:.2f} MB")
+    print(f"Size reduction: {(1 - quantized_size / original_size) * 100:.1f}%")
     print("Done!")
 
 if __name__ == '__main__':
