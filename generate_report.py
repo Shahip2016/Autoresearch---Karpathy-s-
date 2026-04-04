@@ -3,6 +3,28 @@ import json
 import argparse
 from datetime import datetime
 
+def generate_markdown_report(results_file, out_file):
+    if not os.path.exists(results_file):
+        print(f"File {results_file} not found.")
+        return
+        
+    try:
+        with open(results_file, 'r') as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"Error parsing JSON: {e}")
+        return
+        
+    md = f"# Training Report - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    md += "| Iteration | Train Loss | Val Loss | BPB | Perplexity | Acc 1% |\n"
+    md += "|---|---|---|---|---|---|\n"
+    for row in data:
+        md += f"| {row.get('iter', 'N/A')} | {row.get('train_loss', 0):.4f} | {row.get('val_loss', 0):.4f} | {row.get('val_bpb', 0):.4f} | {row.get('val_ppl', 0):.2f} | {row.get('val_acc1', 0):.2f}% |\n"
+        
+    with open(out_file, 'w') as f:
+        f.write(md)
+    print(f"Markdown report generated successfully at {out_file}")
+
 def generate_html_report(results_file, out_file):
     if not os.path.exists(results_file):
         print(f"File {results_file} not found.")
@@ -71,7 +93,13 @@ def generate_html_report(results_file, out_file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate an HTML report of training progress.")
     parser.add_argument('--input', type=str, default='out/loss_history.json', help="Path to loss_history.json")
-    parser.add_argument('--output', type=str, default='training_report.html', help="Path to output HTML report")
+    parser.add_argument('--output', type=str, default='training_report.html', help="Path to output report")
+    parser.add_argument('--format', type=str, choices=['html', 'md'], default='html', help="Report format")
     args = parser.parse_args()
     
-    generate_html_report(args.input, args.output)
+    if args.format == 'md':
+        if args.output == 'training_report.html':
+            args.output = 'training_report.md'
+        generate_markdown_report(args.input, args.output)
+    else:
+        generate_html_report(args.input, args.output)
