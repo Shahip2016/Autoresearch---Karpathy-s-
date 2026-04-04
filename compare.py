@@ -69,6 +69,8 @@ def main():
                         help='Temperature (default: 0.8)')
     parser.add_argument('--dataset', type=str, default='tinyshakespeare',
                         help='Dataset to use for meta (default: tinyshakespeare)')
+    parser.add_argument('--json', action='store_true',
+                        help='Output result in JSON format')
     args = parser.parse_args()
 
     stoi, itos = load_meta(args.dataset)
@@ -98,7 +100,18 @@ def main():
     else:
         print("  (Failed to load Model B)\n")
 
-    print(f"{Fore.CYAN}{'='*80}{Style.RESET_ALL}\n")
+    if args.json:
+        import json
+        result = {
+            "prompt": args.prompt,
+            "max_tokens": args.max_tokens,
+            "temperature": args.temp,
+            "model_a": {"name": os.path.basename(args.model_a), "output": out_a if model_a else None},
+            "model_b": {"name": os.path.basename(args.model_b), "output": out_b if model_b else None}
+        }
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"{Fore.CYAN}{'='*80}{Style.RESET_ALL}\n")
 
 if __name__ == '__main__':
     main()
