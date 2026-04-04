@@ -1,8 +1,14 @@
 import torch
 import torch.nn as nn
+import argparse
+import sys
 from train import GPT, N_LAYER, N_HEAD, N_EMBD, BLOCK_SIZE, VOCAB_SIZE
 
-def visualize_model():
+def visualize_model(save_path=None):
+    if save_path:
+        original_stdout = sys.stdout
+        sys.stdout = open(save_path, 'w')
+        
     print(f"\n{'='*60}")
     print(" GPT ARCHITECTURE VISUALIZER")
     print(f"{'='*60}")
@@ -54,5 +60,14 @@ def visualize_model():
     print("  Head --> Output([Next Token Logits])")
     print("```")
 
+    if save_path:
+        sys.stdout.close()
+        sys.stdout = original_stdout
+        print(f"Visualization saved to {save_path}")
+
 if __name__ == "__main__":
-    visualize_model()
+    parser = argparse.ArgumentParser(description="Visualize GPT Architecture")
+    parser.add_argument("--save", type=str, default="", help="Optional path to save standard output")
+    args = parser.parse_args()
+    
+    visualize_model(args.save)
