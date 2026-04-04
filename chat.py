@@ -7,6 +7,7 @@ import os
 import sys
 import time
 import pickle
+import argparse
 import torch
 import torch.nn.functional as F
 from colorama import init, Fore, Style
@@ -29,7 +30,7 @@ def typing_print(text, delay=0.01, color=Fore.GREEN):
         time.sleep(delay)
     print(Style.RESET_ALL)
 
-def main():
+def main(args):
     clear_screen()
     
     print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
@@ -69,6 +70,16 @@ def main():
 
     context_ids = torch.zeros((1, 1), dtype=torch.long, device=DEVICE)
     
+    if args.system_prompt:
+        sys_ids = []
+        for ch in args.system_prompt:
+            if ch in stoi:
+                sys_ids.append(stoi[ch])
+        if sys_ids:
+            context_ids = torch.cat((context_ids, torch.tensor([sys_ids], dtype=torch.long, device=DEVICE)), dim=1)
+            print(f"{Fore.DIM}[System Prompt Loaded]{Style.RESET_ALL}")
+
+    
     while True:
         try:
             print(f"\n{Fore.MAGENTA}USER > {Style.RESET_ALL}", end='')
@@ -102,9 +113,9 @@ def main():
             print(f"{Fore.GREEN}GPT  > {Style.RESET_ALL}", end='', flush=True)
             
             # Generate one character at a time for the "typing" effect
-            temperature = 0.8
-            top_k = 40
-            top_p = 0.9
+            temperature = args.temperature
+            top_k = args.top_k
+            top_p = args.top_p
             
             generated_text = ""
             # Generate up to 200 tokens
@@ -154,4 +165,10 @@ def main():
     print(f"\n{Fore.CYAN}Goodbye!{Style.RESET_ALL}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="AutoResearch Interactive Chat")
+    parser.add_argument("--temperature", type=float, default=0.8, help="Sampling temperature")
+    parser.add_argument("--top-k", type=int, default=40, help="Top-K sampling")
+    parser.add_argument("--top-p", type=float, default=0.9, help="Top-P (nucleus) sampling")
+    parser.add_argument("--system-prompt", type=str, default="", help="Initial system prompt context")
+    args = parser.parse_args()
+    main(args)
