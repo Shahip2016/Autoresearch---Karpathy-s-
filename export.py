@@ -3,7 +3,7 @@ import torch
 import argparse
 from train import GPT, DEVICE, BLOCK_SIZE
 
-def export_to_onnx(checkpoint_path, onnx_path):
+def export_to_onnx(checkpoint_path, onnx_path, opset_version=14):
     """
     Exports a PyTorch model checkpoint to ONNX format.
     """
@@ -47,7 +47,7 @@ def export_to_onnx(checkpoint_path, onnx_path):
             dummy_input, 
             onnx_path, 
             export_params=True,
-            opset_version=14, 
+            opset_version=opset_version, 
             do_constant_folding=True,
             input_names=['input'], 
             output_names=['logits'],
@@ -63,10 +63,12 @@ if __name__ == "__main__":
                         help="Path to the PyTorch checkpoint (default: out/best_model.pt)")
     parser.add_argument("--output", type=str, default="out/model.onnx", 
                         help="Path for the exported ONNX file (default: out/model.onnx)")
+    parser.add_argument("--opset", type=int, default=14, 
+                        help="ONNX opset version (default: 14)")
     
     args = parser.parse_args()
     
     # Ensure output directory exists
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     
-    export_to_onnx(args.checkpoint, args.output)
+    export_to_onnx(args.checkpoint, args.output, args.opset)
